@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey  # type: ignore[import]
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship  # type: ignore[import]
 #this is the database
 DATABASE_URL = "sqlite:///have_your_say.db"
 

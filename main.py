@@ -1,14 +1,17 @@
+from __future__ import annotations
+
 import os
 import random
 import uuid
 import shutil
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from fastapi import FastAPI, Depends, HTTPException, status, Response, Cookie, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+
 
 from database import init_db, get_db, User, Topic, Comment
 
