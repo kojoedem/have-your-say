@@ -1,6 +1,26 @@
+# Python cache
 __pycache__/
-*.pyc
-*.db
+*.py[cod]
+
+# Logs
 *.log
+
+# Database files
+*.db
+*.sqlite3
+have_your_say.db
+
+# User uploaded files
 static/uploads/*
 !static/uploads/.gitkeep
+
+# Environment files
+.env
+.env.*
+
+# Virtual environment
+venv/
+.venv/
+
+# Project specific
+/have-your-say/
