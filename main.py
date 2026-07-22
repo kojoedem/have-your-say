@@ -78,6 +78,30 @@ def request_otp(phone: str = Form(...), db: Session = Depends(get_db)):
 
     print(f"\n[MOCK SMS] To: {phone} | Code: {otp_code}\n")
 
+    # Send via Telegram Bot if TELEGRAM_BOT_TOKEN is set
+    telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if telegram_token:
+        chat_id = "".join([c for c in phone if c.isdigit() or c == "-"])
+        if chat_id:
+            try:
+                import urllib.request
+                import urllib.parse
+                import json
+
+                message = f"Your Have Your Say OTP code is: {otp_code}"
+                url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+                data = urllib.parse.urlencode({
+                    "chat_id": chat_id,
+                    "text": message
+                }).encode("utf-8")
+
+                req = urllib.request.Request(url, data=data, method="POST")
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    res_body = response.read().decode("utf-8")
+                    print(f"[Telegram Bot] Sent to Chat ID {chat_id}. Response: {res_body}")
+            except Exception as e:
+                print(f"[Telegram Bot Error] Failed to send message: {e}")
+
     return {
         "success": True,
         "message": "OTP sent successfully (mocked).",
