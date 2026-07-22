@@ -113,19 +113,19 @@
                 <!-- Step 1: Request OTP Form -->
                 <form id="otp-request-form" onsubmit="handleRequestOTP(event)" class="space-y-5">
                     <div>
-                        <label for="phone" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Phone Number</label>
+                        <label for="phone" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Phone Number or Telegram Chat ID</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
                                 <i data-lucide="phone" class="h-5 w-5"></i>
                             </span>
-                            <input type="tel" id="phone" required placeholder="+1 (555) 000-0000" pattern="^\+?[0-9\s\-()]{10,25}$" title="Please enter a valid phone number with at least 10 digits." class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
+                            <input type="tel" id="phone" required placeholder="e.g. +15550000000 or 123456789" pattern="^\+?[0-9\s\-()]{5,25}$" title="Please enter a valid phone number or Telegram Chat ID with at least 5 digits." class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
                         </div>
-                        <p class="text-[10px] text-slate-400 mt-2 leading-relaxed">Enter any number. Since this is a demonstration environment, a mock OTP code will be shown instantly on the screen.</p>
+                        <p class="text-[10px] text-slate-400 mt-2 leading-relaxed">We deliver OTPs via Telegram Bot to reduce operational costs. Enter your registered phone number or Telegram Chat ID to verify.</p>
                     </div>
 
                     <button type="submit" id="request-otp-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white py-3 px-4 rounded-xl font-semibold shadow-lg shadow-indigo-600/15 hover:shadow-indigo-600/25 transition-all duration-200 flex items-center justify-center space-x-2">
-                        <span>Send Authentication Code</span>
-                        <i data-lucide="arrow-right" class="h-5 w-5"></i>
+                        <span>Verify via Telegram</span>
+                        <i data-lucide="send" class="h-5 w-5"></i>
                     </button>
                 </form>
 
@@ -585,10 +585,10 @@
             const phoneInput = document.getElementById('phone');
             const phone = phoneInput.value.trim();
 
-            // Clean and count digits in the phone number
+            // Clean and count digits in the phone number/ID
             const digits = phone.replace(/\D/g, '');
-            if (digits.length < 10) {
-                alert("Please enter a valid authentic phone number containing at least 10 digits (e.g. +1 (555) 000-0000).");
+            if (digits.length < 5) {
+                alert("Please enter a valid Phone Number or Telegram Chat ID containing at least 5 digits.");
                 phoneInput.focus();
                 return;
             }
@@ -617,7 +617,7 @@
                 alert("Failed to reach server. Try again.");
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = `<span>Send Authentication Code</span><i data-lucide="arrow-right" class="h-5 w-5"></i>`;
+                btn.innerHTML = `<span>Verify via Telegram</span><i data-lucide="send" class="h-5 w-5"></i>`;
                 lucide.createIcons();
             }
         }
