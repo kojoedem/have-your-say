@@ -106,6 +106,15 @@ def verify_otp(
     if user.otp_code != code:
         raise HTTPException(status_code=400, detail="Invalid OTP code.")
 
+    # Generate a random alias and username on every login
+    adjectives = ["Silent", "Quiet", "Hidden", "Shadow", "Deep", "Bold", "Free", "Wild", "Bright", "Epic", "Magic", "Crypto", "Nova", "Cosmic", "Mystic"]
+    nouns = ["Thinker", "Voice", "Echo", "Philosopher", "Dreamer", "Seeker", "Rebel", "Mind", "Nomad", "Wanderer", "Stargazer", "Oracle", "Scribe"]
+    random_alias = f"{random.choice(adjectives)}_{random.choice(nouns)}"
+    random_suffix = secrets.token_hex(2)
+
+    user.alias = random_alias
+    user.username = f"{random_alias}_{random_suffix}"
+
     user.is_verified = True
     user.otp_code = None
     user.otp_expires = None
@@ -203,6 +212,7 @@ def create_topic(
     text: str = Form(...),
     image: Optional[UploadFile] = File(None),
     location: Optional[str] = Form(None),
+    allow_download: bool = Form(True),
     user: User = Depends(require_current_user),
     db: Session = Depends(get_db)
 ):
@@ -227,6 +237,7 @@ def create_topic(
         text=text,
         image_url=image_url,
         location=location.strip() if location else None,
+        allow_download=allow_download,
         created_at=now_naive,
         expires_at=expires_at
     )
@@ -318,6 +329,7 @@ def get_topics(db: Session = Depends(get_db)):
             "text": t.text,
             "image_url": t.image_url,
             "location": t.location,
+            "allow_download": t.allow_download,
             "created_at": t.created_at.isoformat(),
             "expires_at": t.expires_at.isoformat(),
             "time_left_seconds": time_left_sec,
