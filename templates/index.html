@@ -289,6 +289,10 @@
                                     <button type="button" onclick="cancelVideoTrim()" class="px-3.5 py-1.5 bg-slate-850 hover:bg-slate-800 border border-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition">
                                         Cancel
                                     </button>
+                                    <button type="button" onclick="extractVideoFrame()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition flex items-center space-x-1 shadow-md shadow-emerald-600/10">
+                                        <i data-lucide="image" class="h-3.5 w-3.5"></i>
+                                        <span>Share Current Frame</span>
+                                    </button>
                                     <button type="button" onclick="confirmVideoTrim()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center space-x-1 shadow-md shadow-indigo-600/10">
                                         <i data-lucide="scissors" class="h-3.5 w-3.5"></i>
                                         <span>Cut & Convert</span>
@@ -899,6 +903,36 @@
             clearImagePreview();
         }
 
+        function extractVideoFrame() {
+            const videoPreview = document.getElementById('cutter-preview-video');
+            if (!videoPreview) return;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = videoPreview.videoWidth || 640;
+            canvas.height = videoPreview.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
+
+            const dataURL = canvas.toDataURL('image/jpeg', 0.9);
+
+            const previewContainer = document.getElementById('image-preview-container');
+            const previewImg = document.getElementById('image-preview');
+            const clearBtn = document.getElementById('remove-preview-btn');
+
+            previewImg.src = dataURL;
+            previewContainer.classList.remove('hidden');
+            clearBtn.classList.remove('hidden');
+
+            document.getElementById('video-cutter-frame').classList.add('hidden');
+
+            fetch(dataURL)
+                .then(res => res.blob())
+                .then(blob => {
+                    const extractedFile = new File([blob], "extracted-frame.jpg", { type: "image/jpeg" });
+                    window.convertedGifFile = extractedFile;
+                });
+        }
+
         function confirmVideoTrim() {
             if (!currentVideoFile) return;
 
@@ -1068,14 +1102,40 @@
                 // Build replies rendering
                 const repliesHtml = c.replies && c.replies.length > 0 ? `
                     <div class="mt-3 pl-3.5 border-l-2 border-indigo-500/40 space-y-2">
-                        ${c.replies.map(r => `
-                            <div class="bg-slate-900/80 border border-slate-800/60 p-2.5 rounded-xl space-y-1">
-                                <div class="flex items-center justify-between gap-2">
-                                    <span class="font-bold text-slate-300 text-xs cursor-help border-b border-dashed border-slate-700" title="Belief: ${escapeHTML(r.author.belief || 'None')}">@${escapeHTML(r.author.username)}</span>
+                        ${c.replies.map(r => {
+                            const isReplyOwner = currentUser && r.author && currentUser.id === r.author.id;
+                            const replyActions = isReplyOwner ? `
+                                <div class="flex items-center space-x-1">
+                                    <button onclick="editComment(${r.id})" class="text-slate-400 hover:text-indigo-400 transition p-0.5" title="Edit Reply">
+                                        <i data-lucide="edit-3" class="h-3 w-3"></i>
+                                    </button>
+                                    <button onclick="deleteComment(${r.id})" class="text-slate-400 hover:text-red-400 transition p-0.5" title="Delete Reply">
+                                        <i data-lucide="trash-2" class="h-3 w-3"></i>
+                                    </button>
                                 </div>
-                                <p class="text-xs text-slate-300 leading-relaxed">${escapeHTML(r.text)}</p>
-                            </div>
-                        `).join('')}
+                            ` : '';
+                            return `
+                                <div class="bg-slate-900/80 border border-slate-800/60 p-2.5 rounded-xl space-y-1">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="font-bold text-slate-300 text-xs cursor-help border-b border-dashed border-slate-700" title="Belief: ${escapeHTML(r.author.belief || 'None')}">@${escapeHTML(r.author.username)}</span>
+                                        ${replyActions}
+                                    </div>
+                                    <p class="text-xs text-slate-300 leading-relaxed">${escapeHTML(r.text)}</p>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                ` : '';
+
+                const isCommentOwner = currentUser && c.author && currentUser.id === c.author.id;
+                const commentActions = isCommentOwner ? `
+                    <div class="flex items-center space-x-1">
+                        <button onclick="editComment(${c.id})" class="text-slate-400 hover:text-indigo-400 transition p-0.5" title="Edit Comment">
+                            <i data-lucide="edit-3" class="h-3 w-3"></i>
+                        </button>
+                        <button onclick="deleteComment(${c.id})" class="text-slate-400 hover:text-red-400 transition p-0.5" title="Delete Comment">
+                            <i data-lucide="trash-2" class="h-3 w-3"></i>
+                        </button>
                     </div>
                 ` : '';
 
@@ -1089,6 +1149,7 @@
                             <!-- Header -->
                             <div class="flex items-center justify-between gap-2">
                                 <span class="font-bold text-slate-200 text-xs cursor-help border-b border-dashed border-slate-700" title="Belief: ${escapeHTML(c.author.belief || 'None')}">@${escapeHTML(c.author.username)}</span>
+                                ${commentActions}
                             </div>
 
                             <!-- Comment Text -->
@@ -1120,19 +1181,39 @@
             const elementId = isHotTake ? `hot-take-card-${topic.id}` : `topic-card-${topic.id}`;
             const countdownId = isHotTake ? `hot-take-countdown-${topic.id}` : `countdown-${topic.id}`;
 
-            const downloadControls = topic.allow_download ? `
-                <button onclick="downloadTopicJSON(${topic.id})" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-750 hover:border-slate-600 rounded-lg text-slate-300 hover:text-indigo-400 transition shadow" title="Download Conversation (JSON)">
-                    <i data-lucide="file-json" class="h-4 w-4"></i>
-                </button>
-                <button onclick="downloadTopicCSV(${topic.id})" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-750 hover:border-slate-600 rounded-lg text-slate-300 hover:text-emerald-400 transition shadow" title="Download Conversation (CSV)">
-                    <i data-lucide="file-spreadsheet" class="h-4 w-4"></i>
-                </button>
-            ` : `
-                <div class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider bg-slate-950/60 border border-slate-800/60 py-1.5 px-2 rounded-lg flex items-center gap-1 select-none" title="Download records disabled by topic creator">
-                    <i data-lucide="lock" class="h-3 w-3 text-red-500"></i>
-                    <span>Locked</span>
-                </div>
-            `;
+            const isOwner = currentUser && topic.author && currentUser.id === topic.author.id;
+            let downloadControls = '';
+            if (topic.allow_download) {
+                downloadControls = `
+                    <button onclick="downloadTopicJSON(${topic.id})" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-750 hover:border-slate-600 rounded-lg text-slate-300 hover:text-indigo-400 transition shadow" title="Download Conversation (JSON)">
+                        <i data-lucide="file-json" class="h-4 w-4"></i>
+                    </button>
+                    <button onclick="downloadTopicCSV(${topic.id})" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-750 hover:border-slate-600 rounded-lg text-slate-300 hover:text-emerald-400 transition shadow" title="Download Conversation (CSV)">
+                        <i data-lucide="file-spreadsheet" class="h-4 w-4"></i>
+                    </button>
+                `;
+                if (isOwner) {
+                    downloadControls += `
+                        <button onclick="toggleTopicDownload(${topic.id}, false)" class="p-1.5 bg-slate-800 hover:bg-red-950 border border-slate-750 hover:border-red-900 rounded-lg text-red-400 transition shadow" title="Disable downloads (Owner Control)">
+                            <i data-lucide="unlock" class="h-4 w-4"></i>
+                        </button>
+                    `;
+                }
+            } else {
+                downloadControls = `
+                    <div class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider bg-slate-950/60 border border-slate-800/60 py-1.5 px-2 rounded-lg flex items-center gap-1 select-none" title="Download records disabled by topic creator">
+                        <i data-lucide="lock" class="h-3 w-3 text-red-500"></i>
+                        <span>Locked</span>
+                    </div>
+                `;
+                if (isOwner) {
+                    downloadControls += `
+                        <button onclick="toggleTopicDownload(${topic.id}, true)" class="p-1.5 bg-slate-800 hover:bg-emerald-950 border border-slate-750 hover:border-emerald-900 rounded-lg text-emerald-400 transition shadow" title="Enable downloads (Owner Control)">
+                            <i data-lucide="lock-keyhole" class="h-4 w-4"></i>
+                        </button>
+                    `;
+                }
+            }
 
             return `
                 <div class="bg-slate-900 ${borderStyle} rounded-2xl overflow-hidden relative" id="${elementId}">
@@ -1161,6 +1242,16 @@
                                     <i data-lucide="clock" class="h-3.5 w-3.5 text-indigo-400 animate-pulse"></i>
                                     <span id="${countdownId}" data-seconds="${topic.time_left_seconds}">Calculating...</span>
                                 </div>
+                                ${isOwner ? `
+                                    <div class="flex items-center space-x-1 border-l border-slate-800 pl-2">
+                                        <button onclick="editTopic(${topic.id})" class="p-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 hover:text-indigo-400 transition" title="Edit Conversation">
+                                            <i data-lucide="edit-3" class="h-3.5 w-3.5"></i>
+                                        </button>
+                                        <button onclick="deleteTopic(${topic.id})" class="p-1 bg-slate-800 hover:bg-red-950 border border-slate-700 hover:border-red-900 rounded-lg text-slate-300 hover:text-red-400 transition" title="Delete Conversation">
+                                            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                                        </button>
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
 
@@ -1449,6 +1540,144 @@
                 // Add a brief highlight effect
                 el.classList.add('ring-2', 'ring-indigo-500');
                 setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500'), 2500);
+            }
+        }
+
+        async function toggleTopicDownload(topicId, allow) {
+            try {
+                const fd = new FormData();
+                fd.append('allow_download', allow ? 'true' : 'false');
+                const res = await fetch(`/api/topics/${topicId}`, {
+                    method: 'PUT',
+                    body: fd
+                });
+                const data = await res.json();
+                if (data.success) {
+                    await fetchFeed();
+                    if (typeof fetchTrending === 'function') fetchTrending();
+                } else {
+                    alert("Error: " + (data.detail || data.message));
+                }
+            } catch (err) {
+                console.error("Toggle downloads failed:", err);
+                alert("Failed to toggle downloads option.");
+            }
+        }
+
+        async function editTopic(topicId) {
+            const topic = (window.activeTopicsList || []).find(t => t.id === topicId);
+            if (!topic) return;
+
+            const newText = prompt("Edit your conversation:", topic.text);
+            if (newText === null) return;
+            const trimmed = newText.trim();
+            if (!trimmed) {
+                alert("Conversation text cannot be empty.");
+                return;
+            }
+
+            try {
+                const fd = new FormData();
+                fd.append('text', trimmed);
+                const res = await fetch(`/api/topics/${topicId}`, {
+                    method: 'PUT',
+                    body: fd
+                });
+                const data = await res.json();
+                if (data.success) {
+                    await fetchFeed();
+                    if (typeof fetchTrending === 'function') fetchTrending();
+                } else {
+                    alert("Error: " + (data.detail || data.message));
+                }
+            } catch (err) {
+                console.error("Edit conversation failed:", err);
+                alert("Failed to edit conversation.");
+            }
+        }
+
+        async function deleteTopic(topicId) {
+            if (!confirm("Are you sure you want to delete this conversation? This will permanently remove all of its comments and replies.")) return;
+
+            try {
+                const res = await fetch(`/api/topics/${topicId}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    await fetchFeed();
+                    if (typeof fetchTrending === 'function') fetchTrending();
+                } else {
+                    alert("Error: " + (data.detail || data.message));
+                }
+            } catch (err) {
+                console.error("Delete conversation failed:", err);
+                alert("Failed to delete conversation.");
+            }
+        }
+
+        async function editComment(commentId) {
+            let currentText = "";
+            for (let t of window.activeTopicsList || []) {
+                for (let c of t.comments || []) {
+                    if (c.id === commentId) {
+                        currentText = c.text;
+                        break;
+                    }
+                    for (let r of c.replies || []) {
+                        if (r.id === commentId) {
+                            currentText = r.text;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            const newText = prompt("Edit your reaction:", currentText);
+            if (newText === null) return;
+            const trimmed = newText.trim();
+            if (!trimmed) {
+                alert("Reaction text cannot be empty.");
+                return;
+            }
+
+            try {
+                const fd = new FormData();
+                fd.append('text', trimmed);
+                const res = await fetch(`/api/comments/${commentId}`, {
+                    method: 'PUT',
+                    body: fd
+                });
+                const data = await res.json();
+                if (data.success) {
+                    await fetchFeed();
+                    if (typeof fetchTrending === 'function') fetchTrending();
+                } else {
+                    alert("Error: " + (data.detail || data.message));
+                }
+            } catch (err) {
+                console.error("Edit comment failed:", err);
+                alert("Failed to edit comment.");
+            }
+        }
+
+        async function deleteComment(commentId) {
+            if (!confirm("Are you sure you want to delete this reaction? This will permanently remove it.")) return;
+
+            try {
+                const res = await fetch(`/api/comments/${commentId}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    await fetchFeed();
+                    if (typeof fetchTrending === 'function') fetchTrending();
+                } else {
+                    alert("Error: " + (data.detail || data.message));
+                }
+            } catch (err) {
+                console.error("Delete comment failed:", err);
+                alert("Failed to delete reaction.");
             }
         }
 

@@ -204,3 +204,101 @@ def test_nested_comments_and_pinning():
     assert comments[1]["replies_count"] == 1
     assert len(comments[1]["replies"]) == 1
     assert comments[1]["replies"][0]["text"] == "Reply B1"
+
+def test_update_topic():
+    # Setup owner and non-owner
+    create_and_verify_user("+15551112222", "owner_user", "Believer")
+    resp = client.post("/api/topics", data={"text": "Original Topic Text", "location": "NYC"})
+    topic_id = resp.json()["topic"]["id"]
+
+    # Verify original values
+    topics = client.get("/api/topics").json()["topics"]
+    assert topics[0]["text"] == "Original Topic Text"
+    assert topics[0]["allow_download"] is True
+
+    # 1. Update topic as owner
+    update_resp = client.put(f"/api/topics/{topic_id}", data={"text": "Updated Topic Text", "allow_download": "false"})
+    assert update_resp.status_code == 200
+    assert update_resp.json()["success"] is True
+
+    # Check updated values
+    topics = client.get("/api/topics").json()["topics"]
+    assert topics[0]["text"] == "Updated Topic Text"
+    assert topics[0]["allow_download"] is False
+
+    # 2. Update as non-owner (different user)
+    create_and_verify_user("+15553334444", "stranger_user", "Skeptic")
+    bad_update_resp = client.put(f"/api/topics/{topic_id}", data={"text": "Hacked!", "allow_download": "true"})
+    assert bad_update_resp.status_code == 403
+
+
+def test_delete_topic():
+    create_and_verify_user("+15555556666", "owner_two", "Code")
+    resp = client.post("/api/topics", data={"text": "Topic to delete"})
+    topic_id = resp.json()["topic"]["id"]
+
+    # Add a comment to it
+    client.post(f"/api/topics/{topic_id}/comments", data={"text": "A comment"})
+
+    # Try deleting as stranger
+    create_and_verify_user("+15557778888", "stranger_two", "No Code")
+    bad_delete = client.delete(f"/api/topics/{topic_id}")
+    assert bad_delete.status_code == 403
+
+    # Authenticate back as owner
+    create_and_verify_user("+15555556666", "owner_two", "Code")
+    ok_delete = client.delete(f"/api/topics/{topic_id}")
+    assert ok_delete.status_code == 200
+
+    # Verify topic and its comments are deleted
+    topics = client.get("/api/topics").json()["topics"]
+    assert len(topics) == 0
+
+
+def test_update_comment():
+    create_and_verify_user("+15551113333", "topic_author", "Idea")
+    topic_resp = client.post("/api/topics", data={"text": "A Topic"})
+    topic_id = topic_resp.json()["topic"]["id"]
+
+    # Create comment as comment_author
+    create_and_verify_user("+15552224444", "comment_author", "Idea 2")
+    comment_resp = client.post(f"/api/topics/{topic_id}/comments", data={"text": "Original Comment"})
+    comment_id = comment_resp.json()["comment"]["id"]
+
+    # 1. Update comment as author
+    update_resp = client.put(f"/api/comments/{comment_id}", data={"text": "Updated Comment Text"})
+    assert update_resp.status_code == 200
+
+    # Verify updated text
+    topics = client.get("/api/topics").json()["topics"]
+    assert topics[0]["comments"][0]["text"] == "Updated Comment Text"
+
+    # 2. Update as non-author
+    create_and_verify_user("+15553335555", "stranger_three", "No Idea")
+    bad_update = client.put(f"/api/comments/{comment_id}", data={"text": "Hijacked Comment!"})
+    assert bad_update.status_code == 403
+
+
+def test_delete_comment():
+    create_and_verify_user("+15551114444", "author_topic", "Idea")
+    topic_resp = client.post("/api/topics", data={"text": "A Topic"})
+    topic_id = topic_resp.json()["topic"]["id"]
+
+    # Create comment
+    create_and_verify_user("+15552225555", "author_comment", "Idea 2")
+    comment_resp = client.post(f"/api/topics/{topic_id}/comments", data={"text": "Comment to delete"})
+    comment_id = comment_resp.json()["comment"]["id"]
+
+    # 1. Try deleting comment as non-author
+    create_and_verify_user("+15553336666", "stranger_four", "No Idea")
+    bad_delete = client.delete(f"/api/comments/{comment_id}")
+    assert bad_delete.status_code == 403
+
+    # 2. Delete as author
+    create_and_verify_user("+15552225555", "author_comment", "Idea 2")
+    ok_delete = client.delete(f"/api/comments/{comment_id}")
+    assert ok_delete.status_code == 200
+
+    # Verify deleted
+    topics = client.get("/api/topics").json()["topics"]
+    assert len(topics[0]["comments"]) == 0

@@ -255,8 +255,14 @@ def create_topic(
             "text": topic.text,
             "image_url": topic.image_url,
             "location": topic.location,
+            "allow_download": topic.allow_download,
             "created_at": topic.created_at.isoformat(),
-            "expires_at": topic.expires_at.isoformat()
+            "expires_at": topic.expires_at.isoformat(),
+            "author": {
+                "id": user.id,
+                "username": user.username or "Anonymous",
+                "belief": user.belief or ""
+            }
         }
     }
 
@@ -298,6 +304,7 @@ def get_topics(db: Session = Depends(get_db)):
                     "location": r.location,
                     "created_at": r.created_at.isoformat(),
                     "author": {
+                    "id": r.author.id,
                         "username": r.author.username or "Anonymous",
                         "belief": r.author.belief or ""
                     }
@@ -310,6 +317,7 @@ def get_topics(db: Session = Depends(get_db)):
                 "location": c.location,
                 "created_at": c.created_at.isoformat(),
                 "author": {
+                    "id": c.author.id,
                     "username": c.author.username or "Anonymous",
                     "belief": c.author.belief or ""
                 },
@@ -339,6 +347,7 @@ def get_topics(db: Session = Depends(get_db)):
             "comments_count": comm_count,
             "comments": structured_comments,
             "author": {
+                "id": t.author.id,
                 "username": t.author.username or "Anonymous",
                 "belief": t.author.belief or ""
             }
@@ -402,6 +411,7 @@ def create_comment(
             "location": comment.location,
             "created_at": comment.created_at.isoformat(),
             "author": {
+                "id": user.id,
                 "username": user.username or "Anonymous",
                 "belief": user.belief or ""
             }
@@ -424,6 +434,7 @@ def get_trending_topics(db: Session = Depends(get_db)):
             "image_url": t.image_url,
             "location": t.location,
             "author": {
+                "id": t.author.id,
                 "username": t.author.username or "Anonymous"
             }
         })
@@ -432,3 +443,82 @@ def get_trending_topics(db: Session = Depends(get_db)):
         "success": True,
         "trending": trending
     }
+
+@app.put("/api/topics/{topic_id}")
+def update_topic(
+    topic_id: int,
+    text: Optional[str] = Form(None),
+    allow_download: Optional[bool] = Form(None),
+    user: User = Depends(require_current_user),
+    db: Session = Depends(get_db)
+):
+    topic = db.query(Topic).filter(Topic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found.")
+    if topic.user_id != user.id:
+        raise HTTPException(status_code=403, detail="You do not have permission to edit this conversation.")
+
+    if text is not None:
+        text = text.strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="Topic text cannot be empty.")
+        topic.text = text
+
+    if allow_download is not None:
+        topic.allow_download = allow_download
+
+    db.commit()
+    return {"success": True, "message": "Topic updated successfully."}
+
+@app.delete("/api/topics/{topic_id}")
+def delete_topic(
+    topic_id: int,
+    user: User = Depends(require_current_user),
+    db: Session = Depends(get_db)
+):
+    topic = db.query(Topic).filter(Topic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found.")
+    if topic.user_id != user.id:
+        raise HTTPException(status_code=403, detail="You do not have permission to delete this conversation.")
+
+    db.delete(topic)
+    db.commit()
+    return {"success": True, "message": "Topic deleted successfully."}
+
+@app.put("/api/comments/{comment_id}")
+def update_comment(
+    comment_id: int,
+    text: str = Form(...),
+    user: User = Depends(require_current_user),
+    db: Session = Depends(get_db)
+):
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found.")
+    if comment.user_id != user.id:
+        raise HTTPException(status_code=403, detail="You do not have permission to edit this comment.")
+
+    text = text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Comment text cannot be empty.")
+
+    comment.text = text
+    db.commit()
+    return {"success": True, "message": "Comment updated successfully."}
+
+@app.delete("/api/comments/{comment_id}")
+def delete_comment(
+    comment_id: int,
+    user: User = Depends(require_current_user),
+    db: Session = Depends(get_db)
+):
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found.")
+    if comment.user_id != user.id:
+        raise HTTPException(status_code=403, detail="You do not have permission to delete this comment.")
+
+    db.delete(comment)
+    db.commit()
+    return {"success": True, "message": "Comment deleted successfully."}
