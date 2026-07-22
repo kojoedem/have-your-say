@@ -111,3 +111,14 @@ may not be allowed.
 <p align="center">
   <img src="second-image.png" width="600">
 </p>
+
+## Download Control
+
+Topic creators can choose whether their conversations can be downloaded.
+
+- If enabled, users can export the discussion in JSON or CSV format
+- If disabled, download functionality will not be available
+
+### Note
+
+This setting helps guide content sharing, but it does not prevent users from capturing content through screenshots or other means.
