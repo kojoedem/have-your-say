@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey  # type: ignore[import]
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, inspect, text  # type: ignore[import]
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship  # type: ignore[import]
 #this is the database
 DATABASE_URL = "sqlite:///have_your_say.db"
@@ -58,6 +58,12 @@ class Comment(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    inspector = inspect(engine)
+    if "topics" in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('topics')]
+        if 'allow_download' not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE topics ADD COLUMN allow_download BOOLEAN DEFAULT 1"))
 
 def get_db():
     db = SessionLocal()
