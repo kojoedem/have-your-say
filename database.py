@@ -15,10 +15,12 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     phone = Column(String, unique=True, index=True, nullable=False)
     username = Column(String, nullable=True)
+    alias = Column(String, nullable=True)
     belief = Column(String, nullable=True)
     otp_code = Column(String, nullable=True)
     otp_expires = Column(DateTime, nullable=True)
     is_verified = Column(Boolean, default=False)
+    session_token = Column(String, unique=True, index=True, nullable=True)
 
     topics = relationship("Topic", back_populates="author")
     comments = relationship("Comment", back_populates="author")
@@ -43,12 +45,15 @@ class Comment(Base):
     id = Column(Integer, primary_key=True, index=True)
     topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    parent_id = Column(Integer, ForeignKey("comments.id"), nullable=True)
     text = Column(String, nullable=False)
     location = Column(String, nullable=True)  # Location (e.g. country, city) when commenting
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     topics = relationship("Topic", back_populates="comments")
     author = relationship("User", back_populates="comments")
+    replies = relationship("Comment", back_populates="parent", cascade="all, delete-orphan")
+    parent = relationship("Comment", back_populates="replies", remote_side=[id])
 
 def init_db():
     Base.metadata.create_all(bind=engine)

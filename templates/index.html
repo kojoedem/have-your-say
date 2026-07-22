@@ -23,6 +23,7 @@
     <!-- Google Fonts & Lucide Icons via CDN -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.4.5/gifshot.min.js"></script>
     <style>
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
@@ -68,8 +69,7 @@
                         <span class="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-900"></span>
                     </div>
                     <div class="text-left hidden sm:block">
-                        <div class="text-sm font-semibold text-white leading-tight" id="header-username">@username</div>
-                        <div class="text-[10px] text-indigo-300 font-medium max-w-[150px] truncate" id="header-belief" title="">Belief: ...</div>
+                        <div class="text-sm font-semibold text-white leading-tight cursor-help border-b border-dashed border-slate-700" id="header-username" title="Your Belief">@username</div>
                     </div>
                 </div>
 
@@ -168,8 +168,17 @@
                 </div>
 
                 <form id="profile-form" onsubmit="handleUpdateProfile(false, event)" class="space-y-5">
+                    <!-- Privacy Warning Alert -->
+                    <div class="bg-indigo-500/10 border border-indigo-500/30 text-slate-300 p-3.5 rounded-xl text-xs space-y-1">
+                        <div class="flex items-center space-x-2 text-indigo-400 font-bold">
+                            <i data-lucide="shield-alert" class="h-4 w-4 shrink-0"></i>
+                            <span>Privacy Guard</span>
+                        </div>
+                        <p class="leading-relaxed">To stay completely anonymous, <strong>please use a guy name, handle, or alias</strong> rather than your real name. The system will automatically append a unique random suffix to keep your identity completely hidden.</p>
+                    </div>
+
                     <div>
-                        <label for="username" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Username</label>
+                        <label for="username" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Pseudonym / Alias</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
                                 <span class="font-bold text-sm text-indigo-400">@</span>
@@ -179,8 +188,8 @@
                     </div>
 
                     <div>
-                        <label for="belief" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">What I Believe In</label>
-                        <textarea id="belief" required rows="3" placeholder="e.g., I believe in absolute open discussion, kindness, and decentralized communication." class="block w-full p-4 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none resize-none text-sm"></textarea>
+                        <label for="belief" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">What I Believe In (Optional)</label>
+                        <textarea id="belief" rows="3" placeholder="e.g., I believe in absolute open discussion, kindness, and decentralized communication. (Optional)" class="block w-full p-4 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none resize-none text-sm"></textarea>
                     </div>
 
                     <button type="submit" id="profile-submit-btn" class="w-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-500 hover:to-fuchsia-500 text-white py-3 px-4 rounded-xl font-semibold shadow-lg shadow-indigo-600/15 hover:shadow-indigo-600/25 transition duration-200 flex items-center justify-center space-x-2">
@@ -210,8 +219,22 @@
                     </div>
 
                     <!-- Create a Say/Topic Box -->
-                    <div class="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 shadow-xl relative overflow-hidden group">
+                    <div class="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 shadow-xl relative overflow-hidden group" id="create-say-box">
                         <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 opacity-80"></div>
+
+                        <!-- Video to GIF Processing Overlay/Frame -->
+                        <div id="video-to-gif-overlay" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center space-y-4 rounded-2xl p-6 border border-indigo-500/30">
+                            <div class="p-4 bg-indigo-500/10 rounded-full text-indigo-400 animate-bounce">
+                                <i data-lucide="video" class="h-10 w-10"></i>
+                            </div>
+                            <div class="text-center space-y-1">
+                                <h3 class="text-base font-bold text-white">Converting Video to GIF</h3>
+                                <p class="text-xs text-slate-400 max-w-xs">Extracting 60 frames over 1 minute to generate an animated GIF. This is fully anonymous and processed in your browser...</p>
+                            </div>
+                            <div class="w-48 bg-slate-800 h-2 rounded-full overflow-hidden">
+                                <div class="h-full bg-indigo-500 w-full animate-pulse"></div>
+                            </div>
+                        </div>
 
                         <h2 class="text-lg font-bold text-white flex items-center space-x-2 mb-4">
                             <i data-lucide="pencil-line" class="h-5 w-5 text-indigo-400"></i>
@@ -228,15 +251,15 @@
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
                                 <div class="flex items-center space-x-3">
                                     <!-- Custom styled File selector -->
-                                    <label class="cursor-pointer bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-200 py-2.5 px-4 rounded-xl flex items-center space-x-2 text-xs font-semibold transition duration-150">
-                                        <i data-lucide="image" class="h-4.5 w-4.5 text-indigo-400"></i>
-                                        <span>Add Photo</span>
-                                        <input type="file" id="topic-image" accept="image/*" onchange="previewImage(event)" class="hidden">
+                                    <label class="cursor-pointer bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-200 py-2.5 px-4 rounded-xl flex items-center space-x-2 text-xs font-semibold transition duration-150" title="Upload a photo or a video to automatically convert to GIF">
+                                        <i data-lucide="clapperboard" class="h-4.5 w-4.5 text-indigo-400"></i>
+                                        <span>Add Photo or Video</span>
+                                        <input type="file" id="topic-image" accept="image/*,video/*" onchange="handleMediaSelect(event)" class="hidden">
                                     </label>
 
                                     <button type="button" id="remove-preview-btn" onclick="clearImagePreview()" class="hidden text-xs text-red-400 hover:text-red-300 font-medium transition flex items-center space-x-1">
                                         <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
-                                        <span>Clear photo</span>
+                                        <span>Clear Media</span>
                                     </button>
                                 </div>
 
@@ -301,8 +324,17 @@
                         </h2>
 
                         <form id="sidebar-profile-form" onsubmit="handleUpdateProfile(true, event)" class="space-y-4">
+                            <!-- Privacy Warning Alert -->
+                            <div class="bg-indigo-500/10 border border-indigo-500/30 text-slate-300 p-3 rounded-xl text-[11px] space-y-0.5">
+                                <div class="flex items-center space-x-1 text-indigo-400 font-bold">
+                                    <i data-lucide="shield-alert" class="h-3.5 w-3.5 shrink-0"></i>
+                                    <span>Privacy Guard</span>
+                                </div>
+                                <p class="leading-relaxed">Please use a pseudonym or alias, not your real name. We append a random unique suffix to stay fully anonymous.</p>
+                            </div>
+
                             <div>
-                                <label for="sidebar-username" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Username</label>
+                                <label for="sidebar-username" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Pseudonym / Alias</label>
                                 <div class="relative">
                                     <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-indigo-400 font-bold text-xs">@</span>
                                     <input type="text" id="sidebar-username" required class="block w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 text-xs transition duration-200 outline-none">
@@ -310,8 +342,8 @@
                             </div>
 
                             <div>
-                                <label for="sidebar-belief" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">What I Believe In</label>
-                                <textarea id="sidebar-belief" required rows="3" class="block w-full p-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 text-xs transition duration-200 outline-none resize-none"></textarea>
+                                <label for="sidebar-belief" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">What I Believe In (Optional)</label>
+                                <textarea id="sidebar-belief" rows="3" class="block w-full p-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 text-xs transition duration-200 outline-none resize-none"></textarea>
                             </div>
 
                             <button type="submit" class="w-full bg-slate-800 hover:bg-indigo-600 hover:text-white border border-slate-700 hover:border-indigo-500 text-slate-200 py-2 rounded-xl text-xs font-semibold transition-all duration-150 flex items-center justify-center space-x-1.5">
@@ -590,9 +622,8 @@
 
             // Header configuration
             document.getElementById('header-user-controls').classList.remove('hidden');
-            document.getElementById('header-username').innerText = `@${currentUser.username}`;
-            document.getElementById('header-belief').innerText = `Believes: ${currentUser.belief}`;
-            document.getElementById('header-belief').title = currentUser.belief;
+            document.getElementById('header-username').innerText = `@${currentUser.username} (You: ${currentUser.alias || ''})`;
+            document.getElementById('header-username').title = `Belief: ${currentUser.belief || 'None'}`;
 
             const initial = currentUser.username ? currentUser.username[0].toUpperCase() : 'U';
             document.getElementById('user-avatar-initial').innerText = initial;
@@ -619,27 +650,79 @@
 
         // --- FEED & TOPIC ENGAGEMENT ---
 
-        // Image attachment helper
-        function previewImage(event) {
-            const input = event.target;
-            const container = document.getElementById('image-preview-container');
-            const img = document.getElementById('image-preview');
+        // Loader display for GIF conversion
+        function showGifProcessingFrame(show) {
+            const overlay = document.getElementById('video-to-gif-overlay');
+            if (overlay) {
+                if (show) {
+                    overlay.classList.remove('hidden');
+                } else {
+                    overlay.classList.add('hidden');
+                }
+            }
+        }
+
+        // Handles both images and videos (converting video to GIF)
+        function handleMediaSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const previewContainer = document.getElementById('image-preview-container');
+            const previewImg = document.getElementById('image-preview');
             const clearBtn = document.getElementById('remove-preview-btn');
 
-            if (input.files && input.files[0]) {
+            // If it is a video, convert to GIF (max 1 min length)
+            if (file.type.startsWith('video/')) {
+                showGifProcessingFrame(true);
+
+                const blobURL = URL.createObjectURL(file);
+
+                gifshot.createGIF({
+                    video: [blobURL],
+                    numFrames: 60,       // 60 frames
+                    interval: 1,        // 1 second per frame (total length = 60s = 1 min)
+                    gifWidth: 400,
+                    gifHeight: 300,
+                    keepCameraOn: false
+                }, function (obj) {
+                    showGifProcessingFrame(false);
+                    URL.revokeObjectURL(blobURL);
+
+                    if (obj.error) {
+                        alert("Error converting video to GIF: " + obj.errorMsg);
+                        return;
+                    }
+
+                    const base64Data = obj.image;
+                    previewImg.src = base64Data;
+                    previewContainer.classList.remove('hidden');
+                    clearBtn.classList.remove('hidden');
+
+                    // Convert base64 back to Blob to upload
+                    fetch(base64Data)
+                        .then(res => res.blob())
+                        .then(blob => {
+                            const gifFile = new File([blob], "converted.gif", { type: "image/gif" });
+                            window.convertedGifFile = gifFile;
+                        });
+                });
+            } else if (file.type.startsWith('image/')) {
+                // Standard image preview
+                window.convertedGifFile = null;
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    img.src = e.target.result;
-                    container.classList.remove('hidden');
+                    previewImg.src = e.target.result;
+                    previewContainer.classList.remove('hidden');
                     clearBtn.classList.remove('hidden');
                 }
-                reader.readAsDataURL(input.files[0]);
+                reader.readAsDataURL(file);
             }
         }
 
         function clearImagePreview() {
             const input = document.getElementById('topic-image');
             input.value = "";
+            window.convertedGifFile = null;
             document.getElementById('image-preview-container').classList.add('hidden');
             document.getElementById('remove-preview-btn').classList.add('hidden');
         }
@@ -647,7 +730,7 @@
         async function handleCreateTopic(e) {
             e.preventDefault();
             const text = document.getElementById('topic-text').value.trim();
-            const imageFile = document.getElementById('topic-image').files[0];
+            const imageFile = window.convertedGifFile || document.getElementById('topic-image').files[0];
             const btn = document.getElementById('submit-topic-btn');
 
             if (!text) return;
@@ -731,24 +814,87 @@
                 ? 'border-2 border-amber-500/80 shadow-2xl shadow-amber-500/10'
                 : 'border border-slate-800/80 shadow-xl';
 
-            // Comments rendering
-            const commentsHtml = topic.comments.map(c => `
-                <div class="bg-slate-950/60 border border-slate-800/50 p-3.5 rounded-xl space-y-1">
-                    <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center space-x-2 text-xs">
-                            <span class="font-bold text-slate-200">@${c.author.username}</span>
-                            <span class="text-slate-500 text-[10px] max-w-[150px] truncate" title="${c.author.belief}">[Belief: ${c.author.belief || 'None'}]</span>
-                        </div>
-                        ${c.location ? `
-                            <span class="text-[10px] text-slate-400 font-medium bg-slate-900 border border-slate-800/60 py-0.5 px-2 rounded-md flex items-center gap-1 shrink-0">
-                                <i data-lucide="map-pin" class="h-3 w-3 text-red-400"></i>
-                                <span>${c.location}</span>
-                            </span>
-                        ` : ''}
+            // Comments rendering in WhatsApp alternating style with replies
+            const commentsHtml = topic.comments.map((c, idx) => {
+                const isEven = (idx % 2 === 0);
+                const alignmentClass = isEven ? 'justify-start' : 'justify-end';
+                const bubbleBg = isEven ? 'bg-slate-800/80 border-slate-700/60' : 'bg-emerald-950/40 border-emerald-800/50';
+                const roundedClass = isEven ? 'rounded-r-2xl rounded-bl-2xl' : 'rounded-l-2xl rounded-br-2xl';
+                const borderHighlight = c.is_pinned
+                    ? 'ring-2 ring-amber-500 border-amber-500 shadow-lg shadow-amber-500/10'
+                    : 'border border-slate-800/60';
+
+                // Pin label if pinned
+                const pinHeader = c.is_pinned ? `
+                    <div class="flex items-center space-x-1 text-amber-400 text-[10px] font-bold uppercase tracking-wider mb-1.5">
+                        <i data-lucide="pin" class="h-3.5 w-3.5 fill-amber-400"></i>
+                        <span>📌 Pinned (Most Discussed • ${c.replies_count} replies)</span>
                     </div>
-                    <p class="text-sm text-slate-300 font-normal leading-relaxed pl-0.5">${c.text}</p>
-                </div>
-            `).join('');
+                ` : '';
+
+                // Build replies rendering
+                const repliesHtml = c.replies && c.replies.length > 0 ? `
+                    <div class="mt-3 pl-3.5 border-l-2 border-indigo-500/40 space-y-2">
+                        ${c.replies.map(r => `
+                            <div class="bg-slate-900/80 border border-slate-800/60 p-2.5 rounded-xl space-y-1">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="font-bold text-slate-300 text-xs cursor-help border-b border-dashed border-slate-700" title="Belief: ${r.author.belief || 'None'}">@${r.author.username}</span>
+                                    ${r.location ? `
+                                        <span class="text-[9px] text-slate-400 font-medium bg-slate-950 border border-slate-800/40 py-0.5 px-1.5 rounded flex items-center gap-0.5 shrink-0">
+                                            <i data-lucide="map-pin" class="h-2.5 w-2.5 text-red-400"></i>
+                                            <span>${r.location}</span>
+                                        </span>
+                                    ` : ''}
+                                </div>
+                                <p class="text-xs text-slate-300 leading-relaxed">${r.text}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '';
+
+                return `
+                    <div class="w-full flex ${alignmentClass} my-3">
+                        <div class="max-w-[85%] w-full sm:max-w-[75%] ${bubbleBg} ${borderHighlight} ${roundedClass} p-4 space-y-1.5">
+
+                            <!-- Pin status if applicable -->
+                            ${pinHeader}
+
+                            <!-- Header -->
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-bold text-slate-200 text-xs cursor-help border-b border-dashed border-slate-700" title="Belief: ${c.author.belief || 'None'}">@${c.author.username}</span>
+                                ${c.location ? `
+                                    <span class="text-[10px] text-slate-400 font-medium bg-slate-900/60 border border-slate-800/60 py-0.5 px-2 rounded-md flex items-center gap-1 shrink-0">
+                                        <i data-lucide="map-pin" class="h-3 w-3 text-red-400"></i>
+                                        <span>${c.location}</span>
+                                    </span>
+                                ` : ''}
+                            </div>
+
+                            <!-- Comment Text -->
+                            <p class="text-sm text-slate-200 font-normal leading-relaxed">${c.text}</p>
+
+                            <!-- Nested Replies List -->
+                            ${repliesHtml}
+
+                            <!-- Actions & Reply Form Toggle -->
+                            <div class="flex items-center justify-between pt-1 text-[11px] text-slate-400">
+                                <span class="text-[10px] text-slate-500">${c.replies_count} replies</span>
+                                <button onclick="toggleReplyForm(${topic.id}, ${c.id})" class="text-indigo-400 hover:text-indigo-300 font-bold transition flex items-center space-x-1" title="Reply to this comment">
+                                    <i data-lucide="message-square" class="h-3.5 w-3.5"></i>
+                                    <span>Reply</span>
+                                </button>
+                            </div>
+
+                            <!-- Inline Reply Form -->
+                            <form id="reply-form-${topic.id}-${c.id}" onsubmit="handleCreateNestedComment(${topic.id}, ${c.id}, event)" class="hidden mt-2 flex gap-1.5 pt-2 border-t border-slate-800/40">
+                                <input type="text" id="reply-input-${topic.id}-${c.id}" required placeholder="Reply to @${c.author.username}..." class="block w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 text-xs outline-none text-white">
+                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shrink-0">Reply</button>
+                            </form>
+
+                        </div>
+                    </div>
+                `;
+            }).join('');
 
             const elementId = isHotTake ? `hot-take-card-${topic.id}` : `topic-card-${topic.id}`;
             const countdownId = isHotTake ? `hot-take-countdown-${topic.id}` : `countdown-${topic.id}`;
@@ -769,8 +915,7 @@
                                     @
                                 </div>
                                 <div>
-                                    <div class="text-sm font-bold text-white">@${topic.author.username}</div>
-                                    <div class="text-[10px] text-indigo-300 font-semibold" title="${topic.author.belief}">Believes: ${topic.author.belief || 'None'}</div>
+                                    <div class="text-sm font-bold text-white cursor-help border-b border-dashed border-slate-700" title="Belief: ${topic.author.belief || 'None'}">@${topic.author.username}</div>
                                 </div>
                             </div>
 
@@ -956,6 +1101,49 @@
                 }
             } catch (err) {
                 console.error("Create comment error:", err);
+                alert("Failed to send reply.");
+            }
+        }
+
+        function toggleReplyForm(topicId, commentId) {
+            const form = document.getElementById(`reply-form-${topicId}-${commentId}`);
+            if (form) {
+                form.classList.toggle('hidden');
+                const input = document.getElementById(`reply-input-${topicId}-${commentId}`);
+                if (!form.classList.contains('hidden') && input) {
+                    input.focus();
+                }
+            }
+        }
+
+        async function handleCreateNestedComment(topicId, commentId, e) {
+            e.preventDefault();
+            const input = document.getElementById(`reply-input-${topicId}-${commentId}`);
+            if (!input) return;
+            const text = input.value.trim();
+            if (!text) return;
+
+            try {
+                const fd = new FormData();
+                fd.append('text', text);
+                fd.append('parent_id', commentId);
+                fd.append('location', detectedLocation);
+
+                const res = await fetch(`/api/topics/${topicId}/comments`, {
+                    method: 'POST',
+                    body: fd
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    input.value = '';
+                    fetchFeed();
+                    fetchTrending();
+                } else {
+                    alert(data.detail || "Failed to submit reply.");
+                }
+            } catch (err) {
+                console.error("Create nested comment error:", err);
                 alert("Failed to send reply.");
             }
         }

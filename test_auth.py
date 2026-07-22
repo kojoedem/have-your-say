@@ -44,8 +44,8 @@ def test_verify_otp_success_and_fail():
 
     # Check cookies
     cookies = verify_ok.cookies
-    assert "session_phone" in cookies
-    assert cookies["session_phone"] == "+15559876543"
+    assert "session_token" in cookies
+    assert len(cookies["session_token"]) == 64
 
 def test_update_profile_and_get_me():
     # 1. Request & Verify OTP
@@ -64,13 +64,15 @@ def test_update_profile_and_get_me():
     # 3. Set Profile
     prof_resp = client.post("/api/auth/profile", data={"username": "jules", "belief": "Honesty & Code Quality"})
     assert prof_resp.status_code == 200
-    assert prof_resp.json()["user"]["username"] == "jules"
+    assert prof_resp.json()["user"]["username"].startswith("jules_")
+    assert prof_resp.json()["user"]["alias"] == "jules"
     assert prof_resp.json()["user"]["belief"] == "Honesty & Code Quality"
     assert prof_resp.json()["user"]["has_profile"] is True
 
     # 4. Check /me again
     me_resp = client.get("/api/auth/me")
-    assert me_resp.json()["user"]["username"] == "jules"
+    assert me_resp.json()["user"]["username"].startswith("jules_")
+    assert me_resp.json()["user"]["alias"] == "jules"
     assert me_resp.json()["user"]["belief"] == "Honesty & Code Quality"
 
 def test_logout():

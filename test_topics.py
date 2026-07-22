@@ -162,3 +162,45 @@ def test_expired_topic_filtering_and_comments():
 
     finally:
         db.close()
+
+def test_nested_comments_and_pinning():
+    # 1. Register user
+    create_and_verify_user("+15557777777", "nested_user", "Testing tree comments")
+
+    # 2. Create Topic
+    topic_resp = client.post("/api/topics", data={"text": "Parent Topic"})
+    topic_id = topic_resp.json()["topic"]["id"]
+
+    # 3. Create two top-level comments (Parent A, Parent B)
+    comment_a = client.post(f"/api/topics/{topic_id}/comments", data={"text": "Parent A"}).json()["comment"]["id"]
+    comment_b = client.post(f"/api/topics/{topic_id}/comments", data={"text": "Parent B"}).json()["comment"]["id"]
+
+    # 4. Reply to Parent B (1 reply)
+    client.post(f"/api/topics/{topic_id}/comments", data={"text": "Reply B1", "parent_id": comment_b})
+
+    # 5. Reply to Parent A (2 replies) - making A the most commented (pinned) top-level comment
+    client.post(f"/api/topics/{topic_id}/comments", data={"text": "Reply A1", "parent_id": comment_a})
+    client.post(f"/api/topics/{topic_id}/comments", data={"text": "Reply A2", "parent_id": comment_a})
+
+    # 6. Retrieve topic and verify nested structure and pinning
+    get_resp = client.get("/api/topics")
+    topics = get_resp.json()["topics"]
+    topic_data = next(t for t in topics if t["id"] == topic_id)
+
+    comments = topic_data["comments"]
+    assert len(comments) == 2  # Only 2 top-level comments
+
+    # Comment A should be pinned at index 0 because it has 2 replies
+    assert comments[0]["id"] == comment_a
+    assert comments[0]["is_pinned"] is True
+    assert comments[0]["replies_count"] == 2
+    assert len(comments[0]["replies"]) == 2
+    assert comments[0]["replies"][0]["text"] == "Reply A1"
+    assert comments[0]["replies"][1]["text"] == "Reply A2"
+
+    # Comment B should be at index 1, unpinned
+    assert comments[1]["id"] == comment_b
+    assert comments[1]["is_pinned"] is False
+    assert comments[1]["replies_count"] == 1
+    assert len(comments[1]["replies"]) == 1
+    assert comments[1]["replies"][0]["text"] == "Reply B1"
