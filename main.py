@@ -4,6 +4,7 @@ import os
 import random
 import uuid
 import shutil
+import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional, TYPE_CHECKING
 
@@ -26,10 +27,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 init_db()
 
 # --- Helper to get authenticated user ---
-def get_current_user(session_phone: Optional[str] = Cookie(None), db: Session = Depends(get_db)) -> Optional[User]:
-    if not session_phone:
+def get_current_user(session_token: Optional[str] = Cookie(None), db: Session = Depends(get_db)) -> Optional[User]:
+    if not session_token:
         return None
-    user = db.query(User).filter(User.phone == session_phone).first()
+    user = db.query(User).filter(User.session_token == session_token).first()
     if user and user.is_verified:
         return user
     return None
@@ -111,11 +112,12 @@ def verify_otp(
     user.is_verified = True
     user.otp_code = None
     user.otp_expires = None
+    user.session_token = secrets.token_hex(32)
     db.commit()
 
     response.set_cookie(
-        key="session_phone",
-        value=user.phone,
+        key="session_token",
+        value=user.session_token,
         max_age=30 * 24 * 60 * 60,
         httponly=True,
         samesite="lax"
@@ -128,6 +130,7 @@ def verify_otp(
             "id": user.id,
             "phone": user.phone,
             "username": user.username,
+            "alias": user.alias,
             "belief": user.belief,
             "has_profile": bool(user.username)
         }
@@ -136,21 +139,21 @@ def verify_otp(
 @app.post("/api/auth/profile")
 def update_profile(
     username: str = Form(...),
-    belief: str = Form(...),
+    belief: Optional[str] = Form(None),
     user: User = Depends(require_current_user),
     db: Session = Depends(get_db)
 ):
-    username = username.strip()
-    belief = belief.strip()
+    alias = username.strip()
+    belief = belief.strip() if belief else ""
 
-    if not username:
+    if not alias:
         raise HTTPException(status_code=400, detail="Username is required.")
 
-    existing = db.query(User).filter(User.username == username, User.id != user.id).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Username is already taken.")
+    random_suffix = secrets.token_hex(2)
+    public_username = f"{alias}_{random_suffix}"
 
-    user.username = username
+    user.alias = alias
+    user.username = public_username
     user.belief = belief
     db.commit()
 
@@ -161,6 +164,7 @@ def update_profile(
             "id": user.id,
             "phone": user.phone,
             "username": user.username,
+            "alias": user.alias,
             "belief": user.belief,
             "has_profile": True
         }
@@ -176,14 +180,22 @@ def get_me(user: Optional[User] = Depends(get_current_user)):
             "id": user.id,
             "phone": user.phone,
             "username": user.username,
+            "alias": user.alias,
             "belief": user.belief,
             "has_profile": bool(user.username)
         }
     }
 
 @app.post("/api/auth/logout")
-def logout(response: Response):
-    response.delete_cookie(key="session_phone")
+def logout(
+    response: Response,
+    user: Optional[User] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user:
+        user.session_token = None
+        db.commit()
+    response.delete_cookie(key="session_token")
     return {"success": True, "message": "Logged out successfully."}
 
 
@@ -254,18 +266,55 @@ def get_topics(db: Session = Depends(get_db)):
 
         time_left_sec = max(0, int((t.expires_at - now_naive).total_seconds()))
 
-        comments_list = []
-        for c in sorted(t.comments, key=lambda x: x.created_at):
-            comments_list.append({
+        # Build structured comments with nested replies
+        all_comments = sorted(t.comments, key=lambda x: x.created_at)
+        top_level_comments = [c for c in all_comments if c.parent_id is None]
+
+        replies_map = {}
+        for c in all_comments:
+            if c.parent_id is not None:
+                replies_map.setdefault(c.parent_id, []).append(c)
+
+        structured_comments = []
+        for c in top_level_comments:
+            c_replies = replies_map.get(c.id, [])
+            replies_list = []
+            for r in c_replies:
+                replies_list.append({
+                    "id": r.id,
+                    "parent_id": r.parent_id,
+                    "text": r.text,
+                    "location": r.location,
+                    "created_at": r.created_at.isoformat(),
+                    "author": {
+                        "username": r.author.username or "Anonymous",
+                        "belief": r.author.belief or ""
+                    }
+                })
+
+            structured_comments.append({
                 "id": c.id,
+                "parent_id": None,
                 "text": c.text,
                 "location": c.location,
                 "created_at": c.created_at.isoformat(),
                 "author": {
                     "username": c.author.username or "Anonymous",
                     "belief": c.author.belief or ""
-                }
+                },
+                "replies": replies_list,
+                "replies_count": len(replies_list),
+                "is_pinned": False
             })
+
+        # Pin the top-level comment with the most replies (if there are any replies at all)
+        if structured_comments:
+            max_replies = max(item["replies_count"] for item in structured_comments)
+            if max_replies > 0:
+                pinned_idx = next(i for i, item in enumerate(structured_comments) if item["replies_count"] == max_replies)
+                structured_comments[pinned_idx]["is_pinned"] = True
+                pinned_comment = structured_comments.pop(pinned_idx)
+                structured_comments.insert(0, pinned_comment)
 
         topics_with_counts.append({
             "id": t.id,
@@ -276,7 +325,7 @@ def get_topics(db: Session = Depends(get_db)):
             "expires_at": t.expires_at.isoformat(),
             "time_left_seconds": time_left_sec,
             "comments_count": comm_count,
-            "comments": comments_list,
+            "comments": structured_comments,
             "author": {
                 "username": t.author.username or "Anonymous",
                 "belief": t.author.belief or ""
@@ -298,6 +347,7 @@ def get_topics(db: Session = Depends(get_db)):
 def create_comment(
     topic_id: int,
     text: str = Form(...),
+    parent_id: Optional[int] = Form(None),
     location: Optional[str] = Form(None),
     user: User = Depends(require_current_user),
     db: Session = Depends(get_db)
@@ -314,9 +364,15 @@ def create_comment(
     if now_naive > topic.expires_at:
         raise HTTPException(status_code=400, detail="This topic has expired and cannot be commented on.")
 
+    if parent_id:
+        parent_comment = db.query(Comment).filter(Comment.id == parent_id, Comment.topic_id == topic_id).first()
+        if not parent_comment:
+            raise HTTPException(status_code=404, detail="Parent comment not found.")
+
     comment = Comment(
         topic_id=topic_id,
         user_id=user.id,
+        parent_id=parent_id,
         text=text,
         location=location.strip() if location else None,
         created_at=now_naive
@@ -329,6 +385,7 @@ def create_comment(
         "success": True,
         "comment": {
             "id": comment.id,
+            "parent_id": comment.parent_id,
             "text": comment.text,
             "location": comment.location,
             "created_at": comment.created_at.isoformat(),
