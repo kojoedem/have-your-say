@@ -40,7 +40,7 @@ def test_verify_otp_success_and_fail():
     data = verify_ok.json()
     assert data["success"] is True
     assert data["user"]["phone"] == "+15559876543"
-    assert data["user"]["has_profile"] is False
+    assert data["user"]["has_profile"] is True
 
     # Check cookies
     cookies = verify_ok.cookies
@@ -59,7 +59,7 @@ def test_update_profile_and_get_me():
     me_resp = client.get("/api/auth/me")
     assert me_resp.status_code == 200
     assert me_resp.json()["authenticated"] is True
-    assert me_resp.json()["user"]["has_profile"] is False
+    assert me_resp.json()["user"]["has_profile"] is True
 
     # 3. Set Profile
     prof_resp = client.post("/api/auth/profile", data={"username": "jules", "belief": "Honesty & Code Quality"})

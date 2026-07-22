@@ -23,7 +23,7 @@
     <!-- Google Fonts & Lucide Icons via CDN -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.4.5/gifshot.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.3.0/gifshot.min.js"></script>
     <style>
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
@@ -50,8 +50,8 @@
     <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <div class="bg-gradient-to-tr from-indigo-600 to-fuchsia-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20">
-                    <i data-lucide="message-square-plus" class="h-6 w-6 text-white"></i>
+                <div class="flex items-center">
+                    <img src="/static/have-your-say.png" alt="Have Your Say Logo" class="h-10 w-auto object-contain rounded-lg">
                 </div>
                 <div>
                     <h1 class="text-xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">Have Your Say</h1>
@@ -118,7 +118,7 @@
                             <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
                                 <i data-lucide="phone" class="h-5 w-5"></i>
                             </span>
-                            <input type="tel" id="phone" required placeholder="+1 (555) 000-0000" class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
+                            <input type="tel" id="phone" required placeholder="+1 (555) 000-0000" pattern="^\+?[0-9\s\-()]{10,25}$" title="Please enter a valid phone number with at least 10 digits." class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
                         </div>
                         <p class="text-[10px] text-slate-400 mt-2 leading-relaxed">Enter any number. Since this is a demonstration environment, a mock OTP code will be shown instantly on the screen.</p>
                     </div>
@@ -175,6 +175,15 @@
                             <span>Privacy Guard</span>
                         </div>
                         <p class="leading-relaxed">To stay completely anonymous, <strong>please use a guy name, handle, or alias</strong> rather than your real name. The system will automatically append a unique random suffix to keep your identity completely hidden.</p>
+                    </div>
+
+                    <!-- Country Detection Info Box -->
+                    <div class="bg-indigo-950/40 border border-indigo-900/30 text-indigo-300 p-3.5 rounded-xl text-xs flex items-center space-x-2.5">
+                        <i data-lucide="globe" class="h-5 w-5 text-indigo-400 shrink-0"></i>
+                        <div>
+                            <span class="font-bold text-slate-200">Your Connection Country:</span>
+                            <span class="font-semibold text-indigo-300" id="detected-country-display">Detecting...</span>
+                        </div>
                     </div>
 
                     <div>
@@ -236,6 +245,58 @@
                             </div>
                         </div>
 
+                        <!-- Video Trimmer/Cutter Frame (WhatsApp Status Style) -->
+                        <div id="video-cutter-frame" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-sm z-40 flex flex-col p-6 rounded-2xl border border-indigo-500/30 overflow-y-auto space-y-4 animate-fade-in">
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                                <div class="flex items-center space-x-2 text-indigo-400 font-bold text-sm">
+                                    <i data-lucide="scissors" class="h-4.5 w-4.5"></i>
+                                    <span>WhatsApp-Style Video Cutter</span>
+                                </div>
+                                <span class="text-[10px] text-slate-400 font-semibold bg-indigo-950 border border-indigo-900/30 py-0.5 px-2 rounded-md">Cut Segment (Max 1 Min)</span>
+                            </div>
+
+                            <!-- Live Video Preview -->
+                            <div class="flex justify-center bg-slate-900 rounded-xl overflow-hidden border border-slate-800 p-1 max-h-40">
+                                <video id="cutter-preview-video" class="h-36 w-auto object-contain rounded-lg" autoplay loop muted playsinline></video>
+                            </div>
+
+                            <!-- Timeline Frame Strip (Thumbnails generated dynamically) -->
+                            <div class="space-y-1.5">
+                                <label class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Video Timeline Strip</label>
+                                <div id="timeline-thumbnails-container" class="flex gap-1 w-full justify-between bg-slate-900/60 p-1.5 rounded-lg border border-slate-800/80">
+                                    <!-- Dynamic frame thumbnails -->
+                                </div>
+                            </div>
+
+                            <!-- Dual Slider Trim Controls -->
+                            <div class="grid grid-cols-2 gap-4 bg-slate-900/40 p-3 rounded-xl border border-slate-800">
+                                <div>
+                                    <label for="trim-start" class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Start Second</label>
+                                    <input type="number" id="trim-start" min="0" step="0.5" value="0" class="block w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs outline-none text-white focus:border-indigo-500" onchange="onTrimSliderChange()">
+                                </div>
+                                <div>
+                                    <label for="trim-end" class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">End Second</label>
+                                    <input type="number" id="trim-end" min="0" step="0.5" value="60" class="block w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs outline-none text-white focus:border-indigo-500" onchange="onTrimSliderChange()">
+                                </div>
+                            </div>
+
+                            <!-- Cut Duration and Actions -->
+                            <div class="flex items-center justify-between pt-1 border-t border-slate-850">
+                                <div class="text-[11px] font-medium text-slate-300">
+                                    Selected segment: <span class="text-indigo-400 font-bold" id="trim-duration-label">0s</span>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button type="button" onclick="cancelVideoTrim()" class="px-3.5 py-1.5 bg-slate-850 hover:bg-slate-800 border border-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition">
+                                        Cancel
+                                    </button>
+                                    <button type="button" onclick="confirmVideoTrim()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center space-x-1 shadow-md shadow-indigo-600/10">
+                                        <i data-lucide="scissors" class="h-3.5 w-3.5"></i>
+                                        <span>Cut & Convert</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <h2 class="text-lg font-bold text-white flex items-center space-x-2 mb-4">
                             <i data-lucide="pencil-line" class="h-5 w-5 text-indigo-400"></i>
                             <span>Create a New Say</span>
@@ -245,6 +306,12 @@
                             <!-- Topic text -->
                             <div>
                                 <textarea id="topic-text" required rows="3" placeholder="What is on your mind? Have your say completely anonymously..." class="block w-full p-4 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none resize-none text-sm"></textarea>
+                            </div>
+
+                            <!-- Download Permission Toggle -->
+                            <div class="flex items-center space-x-2.5 bg-slate-950/40 border border-slate-850 p-2.5 rounded-xl">
+                                <input type="checkbox" id="topic-allow-download" checked class="h-4 w-4 rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                                <label for="topic-allow-download" class="text-xs text-slate-300 font-medium cursor-pointer select-none">Allow others to download this conversation (JSON/CSV records)</label>
                             </div>
 
                             <!-- Image attachment preview & button -->
@@ -314,7 +381,7 @@
                 </div>
 
                 <!-- RIGHT SIDEBAR COLUMN: Settings & Trending (4 cols on lg) -->
-                <div class="lg:col-span-4 space-y-8">
+                <div class="lg:col-span-4 space-y-8 lg:sticky lg:top-24 lg:self-start">
 
                     <!-- Sidebar Card 1: My Profile Settings / Belief -->
                     <div class="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 shadow-xl relative">
@@ -387,7 +454,7 @@
         <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
             <div class="flex items-center space-x-1.5 text-slate-400">
                 <span class="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
-                <span id="user-location-display">Geolocating connection...</span>
+                <span>Connection Secure & Fully Anonymous</span>
             </div>
             <div>
                 Built securely using FastAPI & Tailwind
@@ -397,6 +464,17 @@
 
     <!-- --- CLIENT-SIDE JAVASCRIPT --- -->
     <script>
+        // --- XSS Prevention Escape Helper ---
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         // --- Global States ---
         let currentUser = null;
         let detectedLocation = "Anonymous Location";
@@ -437,7 +515,10 @@
                     detectedLocation = "Earth Orbit";
                 }
             }
-            document.getElementById('user-location-display').innerText = `Location: ${detectedLocation}`;
+            const locationDisplay = document.getElementById('user-location-display');
+            if (locationDisplay) {
+                locationDisplay.innerText = `Location: ${detectedLocation}`;
+            }
         }
 
         // --- AUTH SERVICES ---
@@ -497,9 +578,18 @@
 
         async function handleRequestOTP(e) {
             e.preventDefault();
-            const phone = document.getElementById('phone').value.trim();
-            const btn = document.getElementById('request-otp-btn');
+            const phoneInput = document.getElementById('phone');
+            const phone = phoneInput.value.trim();
 
+            // Clean and count digits in the phone number
+            const digits = phone.replace(/\D/g, '');
+            if (digits.length < 10) {
+                alert("Please enter a valid authentic phone number containing at least 10 digits (e.g. +1 (555) 000-0000).");
+                phoneInput.focus();
+                return;
+            }
+
+            const btn = document.getElementById('request-otp-btn');
             btn.disabled = true;
             btn.innerHTML = `<span class="animate-pulse">Requesting...</span>`;
 
@@ -577,6 +667,12 @@
 
             document.getElementById('username').value = currentUser.username || '';
             document.getElementById('belief').value = currentUser.belief || '';
+
+            // Automatically set detected country display
+            const countryEl = document.getElementById('detected-country-display');
+            if (countryEl) {
+                countryEl.innerText = detectedLocation || "Earth Orbit";
+            }
         }
 
         async function handleUpdateProfile(sidebar = false, e) {
@@ -662,7 +758,11 @@
             }
         }
 
-        // Handles both images and videos (converting video to GIF)
+        // Globals for video trimming (WhatsApp Style)
+        let currentVideoFile = null;
+        let currentVideoDuration = 0;
+
+        // Handles both images and videos
         function handleMediaSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -671,41 +771,36 @@
             const previewImg = document.getElementById('image-preview');
             const clearBtn = document.getElementById('remove-preview-btn');
 
-            // If it is a video, convert to GIF (max 1 min length)
+            // If it is a video, show the WhatsApp trimmer cutter frame!
             if (file.type.startsWith('video/')) {
-                showGifProcessingFrame(true);
+                currentVideoFile = file;
+                const cutterFrame = document.getElementById('video-cutter-frame');
+                const videoPreview = document.getElementById('cutter-preview-video');
 
-                const blobURL = URL.createObjectURL(file);
+                // Show cutter frame
+                cutterFrame.classList.remove('hidden');
 
-                gifshot.createGIF({
-                    video: [blobURL],
-                    numFrames: 60,       // 60 frames
-                    interval: 1,        // 1 second per frame (total length = 60s = 1 min)
-                    gifWidth: 400,
-                    gifHeight: 300,
-                    keepCameraOn: false
-                }, function (obj) {
-                    showGifProcessingFrame(false);
-                    URL.revokeObjectURL(blobURL);
+                // Load video preview
+                const videoURL = URL.createObjectURL(file);
+                videoPreview.src = videoURL;
 
-                    if (obj.error) {
-                        alert("Error converting video to GIF: " + obj.errorMsg);
-                        return;
-                    }
+                videoPreview.onloadedmetadata = () => {
+                    currentVideoDuration = videoPreview.duration;
 
-                    const base64Data = obj.image;
-                    previewImg.src = base64Data;
-                    previewContainer.classList.remove('hidden');
-                    clearBtn.classList.remove('hidden');
+                    // Set default inputs
+                    document.getElementById('trim-start').value = 0;
+                    document.getElementById('trim-start').max = currentVideoDuration;
 
-                    // Convert base64 back to Blob to upload
-                    fetch(base64Data)
-                        .then(res => res.blob())
-                        .then(blob => {
-                            const gifFile = new File([blob], "converted.gif", { type: "image/gif" });
-                            window.convertedGifFile = gifFile;
-                        });
-                });
+                    document.getElementById('trim-end').value = Math.min(60, currentVideoDuration).toFixed(1);
+                    document.getElementById('trim-end').max = currentVideoDuration;
+
+                    onTrimSliderChange();
+                    lucide.createIcons();
+                };
+
+                // Generate the timeline strip
+                generateTimelineThumbnails(file);
+
             } else if (file.type.startsWith('image/')) {
                 // Standard image preview
                 window.convertedGifFile = null;
@@ -717,6 +812,146 @@
                 }
                 reader.readAsDataURL(file);
             }
+        }
+
+        async function generateTimelineThumbnails(file) {
+            const container = document.getElementById('timeline-thumbnails-container');
+            container.innerHTML = '<div class="text-[10px] text-slate-400 py-3 text-center w-full animate-pulse">Generating WhatsApp timeline...</div>';
+
+            try {
+                const tempVideo = document.createElement('video');
+                tempVideo.src = URL.createObjectURL(file);
+                tempVideo.muted = true;
+                tempVideo.playsInline = true;
+
+                await new Promise(resolve => {
+                    tempVideo.onloadedmetadata = () => resolve();
+                });
+
+                const duration = tempVideo.duration;
+                const numThumbnails = 5;
+                const timestamps = [];
+                for (let i = 0; i < numThumbnails; i++) {
+                    timestamps.push((duration / (numThumbnails - 1)) * i);
+                }
+
+                container.innerHTML = ''; // clear loading
+
+                for (let t of timestamps) {
+                    tempVideo.currentTime = t;
+                    await new Promise(resolve => {
+                        tempVideo.onseeked = () => resolve();
+                    });
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 120;
+                    canvas.height = 90;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+
+                    const img = document.createElement('img');
+                    img.src = canvas.toDataURL('image/jpeg', 0.6);
+                    img.className = "w-1/5 h-10 object-cover border border-slate-800 rounded shadow-md";
+                    container.appendChild(img);
+                }
+
+                URL.revokeObjectURL(tempVideo.src);
+            } catch (err) {
+                console.error("Timeline strip extraction failed:", err);
+                container.innerHTML = '<div class="text-[10px] text-red-400 py-2 text-center w-full animate-fade-in">Timeline strip preview</div>';
+            }
+        }
+
+        function onTrimSliderChange() {
+            let start = parseFloat(document.getElementById('trim-start').value) || 0;
+            let end = parseFloat(document.getElementById('trim-end').value) || 0;
+
+            // Constrain start and end times
+            if (start < 0) start = 0;
+            if (start > currentVideoDuration) start = currentVideoDuration;
+            if (end < start) end = start;
+            if (end > currentVideoDuration) end = currentVideoDuration;
+
+            // Enforce max duration of 1 minute (60 seconds)
+            const maxDuration = 60;
+            if (end - start > maxDuration) {
+                end = start + maxDuration;
+                document.getElementById('trim-end').value = end.toFixed(1);
+            }
+
+            const duration = end - start;
+            document.getElementById('trim-duration-label').innerText = `${duration.toFixed(1)}s`;
+
+            // Sync preview video currentTime to the start offset
+            const videoPreview = document.getElementById('cutter-preview-video');
+            if (videoPreview) {
+                videoPreview.currentTime = start;
+            }
+        }
+
+        function cancelVideoTrim() {
+            // Hide cutter frame and clear input
+            document.getElementById('video-cutter-frame').classList.add('hidden');
+            const videoPreview = document.getElementById('cutter-preview-video');
+            if (videoPreview) {
+                videoPreview.src = "";
+            }
+            clearImagePreview();
+        }
+
+        function confirmVideoTrim() {
+            if (!currentVideoFile) return;
+
+            let start = parseFloat(document.getElementById('trim-start').value) || 0;
+            let end = parseFloat(document.getElementById('trim-end').value) || 0;
+            let duration = end - start;
+
+            if (duration <= 0) {
+                alert("Please select a valid clip duration.");
+                return;
+            }
+
+            // Hide Cutter Frame and Show processing screen overlay
+            document.getElementById('video-cutter-frame').classList.add('hidden');
+            showGifProcessingFrame(true);
+
+            const blobURL = URL.createObjectURL(currentVideoFile);
+
+            gifshot.createGIF({
+                video: [blobURL],
+                offset: start,
+                videoDuration: duration,
+                numFrames: 30, // 30 frames is perfect for quick high-quality processing
+                interval: duration / 30,
+                gifWidth: 400,
+                gifHeight: 300,
+                keepCameraOn: false
+            }, function (obj) {
+                showGifProcessingFrame(false);
+                URL.revokeObjectURL(blobURL);
+
+                if (obj.error) {
+                    alert("Error converting video to GIF: " + obj.errorMsg);
+                    return;
+                }
+
+                const previewContainer = document.getElementById('image-preview-container');
+                const previewImg = document.getElementById('image-preview');
+                const clearBtn = document.getElementById('remove-preview-btn');
+
+                const base64Data = obj.image;
+                previewImg.src = base64Data;
+                previewContainer.classList.remove('hidden');
+                clearBtn.classList.remove('hidden');
+
+                // Convert base64 back to Blob to upload
+                fetch(base64Data)
+                    .then(res => res.blob())
+                    .then(blob => {
+                        const gifFile = new File([blob], "converted.gif", { type: "image/gif" });
+                        window.convertedGifFile = gifFile;
+                    });
+            });
         }
 
         function clearImagePreview() {
@@ -731,6 +966,7 @@
             e.preventDefault();
             const text = document.getElementById('topic-text').value.trim();
             const imageFile = window.convertedGifFile || document.getElementById('topic-image').files[0];
+            const allowDownload = document.getElementById('topic-allow-download').checked;
             const btn = document.getElementById('submit-topic-btn');
 
             if (!text) return;
@@ -742,6 +978,7 @@
                 const fd = new FormData();
                 fd.append('text', text);
                 fd.append('location', detectedLocation);
+                fd.append('allow_download', allowDownload);
                 if (imageFile) {
                     fd.append('image', imageFile);
                 }
@@ -779,6 +1016,7 @@
                 const data = await res.json();
 
                 if (res.ok && data.success) {
+                    window.activeTopicsList = data.topics; // Store topics globally for JSON/CSV export
                     renderFeed(data.topics);
                 } else {
                     console.error("Failed to load feed");
@@ -797,12 +1035,7 @@
                 </div>
             ` : '';
 
-            const locationTag = topic.location ? `
-                <div class="flex items-center space-x-1 text-xs text-slate-400 font-medium bg-slate-950 border border-slate-800/80 rounded-lg py-1 px-2 shrink-0">
-                    <i data-lucide="map-pin" class="h-3.5 w-3.5 text-rose-400"></i>
-                    <span>${topic.location}</span>
-                </div>
-            ` : '';
+            const locationTag = '';
 
             const progressColor = isHotTake
                 ? 'from-amber-400 via-orange-500 to-rose-500'
@@ -838,15 +1071,9 @@
                         ${c.replies.map(r => `
                             <div class="bg-slate-900/80 border border-slate-800/60 p-2.5 rounded-xl space-y-1">
                                 <div class="flex items-center justify-between gap-2">
-                                    <span class="font-bold text-slate-300 text-xs cursor-help border-b border-dashed border-slate-700" title="Belief: ${r.author.belief || 'None'}">@${r.author.username}</span>
-                                    ${r.location ? `
-                                        <span class="text-[9px] text-slate-400 font-medium bg-slate-950 border border-slate-800/40 py-0.5 px-1.5 rounded flex items-center gap-0.5 shrink-0">
-                                            <i data-lucide="map-pin" class="h-2.5 w-2.5 text-red-400"></i>
-                                            <span>${r.location}</span>
-                                        </span>
-                                    ` : ''}
+                                    <span class="font-bold text-slate-300 text-xs cursor-help border-b border-dashed border-slate-700" title="Belief: ${escapeHTML(r.author.belief || 'None')}">@${escapeHTML(r.author.username)}</span>
                                 </div>
-                                <p class="text-xs text-slate-300 leading-relaxed">${r.text}</p>
+                                <p class="text-xs text-slate-300 leading-relaxed">${escapeHTML(r.text)}</p>
                             </div>
                         `).join('')}
                     </div>
@@ -861,17 +1088,11 @@
 
                             <!-- Header -->
                             <div class="flex items-center justify-between gap-2">
-                                <span class="font-bold text-slate-200 text-xs cursor-help border-b border-dashed border-slate-700" title="Belief: ${c.author.belief || 'None'}">@${c.author.username}</span>
-                                ${c.location ? `
-                                    <span class="text-[10px] text-slate-400 font-medium bg-slate-900/60 border border-slate-800/60 py-0.5 px-2 rounded-md flex items-center gap-1 shrink-0">
-                                        <i data-lucide="map-pin" class="h-3 w-3 text-red-400"></i>
-                                        <span>${c.location}</span>
-                                    </span>
-                                ` : ''}
+                                <span class="font-bold text-slate-200 text-xs cursor-help border-b border-dashed border-slate-700" title="Belief: ${escapeHTML(c.author.belief || 'None')}">@${escapeHTML(c.author.username)}</span>
                             </div>
 
                             <!-- Comment Text -->
-                            <p class="text-sm text-slate-200 font-normal leading-relaxed">${c.text}</p>
+                            <p class="text-sm text-slate-200 font-normal leading-relaxed">${escapeHTML(c.text)}</p>
 
                             <!-- Nested Replies List -->
                             ${repliesHtml}
@@ -887,7 +1108,7 @@
 
                             <!-- Inline Reply Form -->
                             <form id="reply-form-${topic.id}-${c.id}" onsubmit="handleCreateNestedComment(${topic.id}, ${c.id}, event)" class="hidden mt-2 flex gap-1.5 pt-2 border-t border-slate-800/40">
-                                <input type="text" id="reply-input-${topic.id}-${c.id}" required placeholder="Reply to @${c.author.username}..." class="block w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 text-xs outline-none text-white">
+                                <input type="text" id="reply-input-${topic.id}-${c.id}" required placeholder="Reply to @${escapeHTML(c.author.username)}..." class="block w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 text-xs outline-none text-white">
                                 <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shrink-0">Reply</button>
                             </form>
 
@@ -898,6 +1119,20 @@
 
             const elementId = isHotTake ? `hot-take-card-${topic.id}` : `topic-card-${topic.id}`;
             const countdownId = isHotTake ? `hot-take-countdown-${topic.id}` : `countdown-${topic.id}`;
+
+            const downloadControls = topic.allow_download ? `
+                <button onclick="downloadTopicJSON(${topic.id})" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-750 hover:border-slate-600 rounded-lg text-slate-300 hover:text-indigo-400 transition shadow" title="Download Conversation (JSON)">
+                    <i data-lucide="file-json" class="h-4 w-4"></i>
+                </button>
+                <button onclick="downloadTopicCSV(${topic.id})" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-750 hover:border-slate-600 rounded-lg text-slate-300 hover:text-emerald-400 transition shadow" title="Download Conversation (CSV)">
+                    <i data-lucide="file-spreadsheet" class="h-4 w-4"></i>
+                </button>
+            ` : `
+                <div class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider bg-slate-950/60 border border-slate-800/60 py-1.5 px-2 rounded-lg flex items-center gap-1 select-none" title="Download records disabled by topic creator">
+                    <i data-lucide="lock" class="h-3 w-3 text-red-500"></i>
+                    <span>Locked</span>
+                </div>
+            `;
 
             return `
                 <div class="bg-slate-900 ${borderStyle} rounded-2xl overflow-hidden relative" id="${elementId}">
@@ -915,12 +1150,13 @@
                                     @
                                 </div>
                                 <div>
-                                    <div class="text-sm font-bold text-white cursor-help border-b border-dashed border-slate-700" title="Belief: ${topic.author.belief || 'None'}">@${topic.author.username}</div>
+                                    <div class="text-sm font-bold text-white cursor-help border-b border-dashed border-slate-700" title="Belief: ${escapeHTML(topic.author.belief || 'None')}">@${escapeHTML(topic.author.username)}</div>
                                 </div>
                             </div>
 
                             <div class="flex items-center space-x-2">
                                 ${locationTag}
+                                ${downloadControls}
                                 <div class="flex items-center space-x-1 text-xs text-indigo-300 font-semibold bg-indigo-950/40 border border-indigo-900/30 rounded-lg py-1 px-2">
                                     <i data-lucide="clock" class="h-3.5 w-3.5 text-indigo-400 animate-pulse"></i>
                                     <span id="${countdownId}" data-seconds="${topic.time_left_seconds}">Calculating...</span>
@@ -929,7 +1165,7 @@
                         </div>
 
                         <!-- Say Text -->
-                        <p class="text-base text-slate-200 font-normal leading-relaxed whitespace-pre-line">${topic.text}</p>
+                        <p class="text-base text-slate-200 font-normal leading-relaxed whitespace-pre-line">${escapeHTML(topic.text)}</p>
 
                         <!-- Say Image -->
                         ${imageTag}
@@ -1187,9 +1423,9 @@
                             ${index + 1}
                         </span>
                         <div class="space-y-1 overflow-hidden flex-grow">
-                            <p class="text-xs font-semibold text-slate-200 truncate">${item.text}</p>
+                            <p class="text-xs font-semibold text-slate-200 truncate">${escapeHTML(item.text)}</p>
                             <div class="flex items-center justify-between text-[10px] text-slate-500">
-                                <span>by @${item.author.username}</span>
+                                <span>by @${escapeHTML(item.author.username)}</span>
                                 <span class="flex items-center gap-1 font-medium text-indigo-400">
                                     <i data-lucide="message-square" class="h-3 w-3"></i>
                                     <span>${item.comments_count} replies</span>
@@ -1214,6 +1450,84 @@
                 el.classList.add('ring-2', 'ring-indigo-500');
                 setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500'), 2500);
             }
+        }
+
+        // --- CONVERSATION EXPORTS (ANONYMIZED RECORDS) ---
+        function downloadTopicJSON(topicId) {
+            const topic = (window.activeTopicsList || []).find(t => t.id === topicId);
+            if (!topic) {
+                alert("Topic data not found.");
+                return;
+            }
+
+            // Securely scrub usernames of authors and commenters
+            const scrubbedData = {
+                topic_id: topic.id,
+                text: topic.text,
+                created_at: topic.created_at,
+                expires_at: topic.expires_at,
+                author: {
+                    username: "Anonymized User",
+                    belief: topic.author.belief || "None"
+                },
+                comments: (topic.comments || []).map(c => ({
+                    id: c.id,
+                    text: c.text,
+                    created_at: c.created_at,
+                    author: {
+                        username: "Anonymized User",
+                        belief: c.author.belief || "None"
+                    },
+                    replies: (c.replies || []).map(r => ({
+                        id: r.id,
+                        text: r.text,
+                        created_at: r.created_at,
+                        author: {
+                            username: "Anonymized User",
+                            belief: r.author.belief || "None"
+                        }
+                    }))
+                }))
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(scrubbedData, null, 2));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href",     dataStr);
+            dlAnchorElem.setAttribute("download", `conversation_${topicId}.json`);
+            dlAnchorElem.click();
+        }
+
+        function downloadTopicCSV(topicId) {
+            const topic = (window.activeTopicsList || []).find(t => t.id === topicId);
+            if (!topic) {
+                alert("Topic data not found.");
+                return;
+            }
+
+            // Create CSV rows securely scrubbing all names/usernames
+            let csvRows = [];
+            csvRows.push("Type,ID,ParentID,Text,Created_At,Author,Belief");
+
+            // Topic row
+            csvRows.push(`Topic,${topic.id},,"${topic.text.replace(/"/g, '""')}",${topic.created_at},Anonymized User,"${(topic.author.belief || '').replace(/"/g, '""')}"`);
+
+            // Comments and nested replies
+            (topic.comments || []).forEach(c => {
+                csvRows.push(`Comment,${c.id},,"${c.text.replace(/"/g, '""')}",${c.created_at},Anonymized User,"${(c.author.belief || '').replace(/"/g, '""')}"`);
+
+                (c.replies || []).forEach(r => {
+                    csvRows.push(`Reply,${r.id},${c.id},"${r.text.replace(/"/g, '""')}",${r.created_at},Anonymized User,"${(r.author.belief || '').replace(/"/g, '""')}"`);
+                });
+            });
+
+            const csvString = csvRows.join("\n");
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", url);
+            dlAnchorElem.setAttribute("download", `conversation_${topicId}.csv`);
+            dlAnchorElem.click();
+            URL.revokeObjectURL(url);
         }
     </script>
 </body>

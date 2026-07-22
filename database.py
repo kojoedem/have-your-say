@@ -33,6 +33,7 @@ class Topic(Base):
     text = Column(String, nullable=False)
     image_url = Column(String, nullable=True)
     location = Column(String, nullable=True)  # Location (e.g., country/city) when topic is posted
+    allow_download = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     expires_at = Column(DateTime, default=lambda: datetime.now(timezone.utc) + timedelta(hours=12))
 
