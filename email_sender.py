@@ -1,11 +1,17 @@
+import os
 import smtplib
 from email.message import EmailMessage
 from config import SMTP_SERVER, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_SENDER
 
-def send_email_otp(recipient_email: str, otp_code: str) -> bool:
+def send_email_otp(recipient_email: str, otp_code: str) -> tuple[bool, str]:
     """
     Sends a real SMTP email containing the 6-digit OTP code.
+    Returns (success_boolean, error_message_string).
     """
+    if os.getenv("MOCK_SMTP") == "True":
+        print(f"[Email Sender Mock] Simulating successful SMTP email dispatch to {recipient_email}")
+        return True, ""
+
     message = EmailMessage()
     message["Subject"] = "🔐 Your Have Your Say OTP Code"
     message["From"] = SMTP_SENDER
@@ -30,7 +36,16 @@ def send_email_otp(recipient_email: str, otp_code: str) -> bool:
                 server.send_message(message)
 
         print(f"[Email Sender] Real email sent successfully to {recipient_email}")
-        return True
+        return True, ""
+    except smtplib.SMTPAuthenticationError as e:
+        err_msg = f"SMTP Authentication failed. Please verify your SMTP_USERNAME and SMTP_PASSWORD (or App Password): {e}"
+        print(f"[Email Sender Error] {err_msg}")
+        return False, err_msg
+    except smtplib.SMTPConnectError as e:
+        err_msg = f"SMTP Connection failed. Could not connect to SMTP server {SMTP_SERVER} on port {SMTP_PORT}: {e}"
+        print(f"[Email Sender Error] {err_msg}")
+        return False, err_msg
     except Exception as e:
-        print(f"[Email Sender Error] Failed to send email to {recipient_email}: {e}")
-        return False
+        err_msg = f"Failed to send email to {recipient_email}: {e}"
+        print(f"[Email Sender Error] {err_msg}")
+        return False, err_msg

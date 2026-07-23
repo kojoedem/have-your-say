@@ -98,15 +98,24 @@ def test_logout():
 # --- New Tests for Telegram/Email Auth Features ---
 
 def test_email_request_and_verify_success():
-    with patch("main.send_email_otp") as mock_send_email:
+    with patch("main.send_email_otp", return_value=(True, "")) as mock_send_email:
         # 1. Request OTP via email
         response = client.post("/api/auth/otp-request", data={"email": "alice@example.com"})
         assert response.status_code == 200
         json_data = response.json()
         assert json_data["success"] is True
         assert json_data["email"] == "alice@example.com"
-        assert "otp_code" in json_data
-        otp_code = json_data["otp_code"]
+        assert "otp_code" not in json_data  # Ensure mocked otp_code retrieval is removed for Email
+
+        # Fetch otp_code directly from database for testing
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.email == "alice@example.com").first()
+            assert user is not None
+            otp_code = user.otp_code
+            assert otp_code is not None
+        finally:
+            db.close()
 
         # Verify SMTP sender function is executed with proper arguments
         mock_send_email.assert_called_once_with("alice@example.com", otp_code)

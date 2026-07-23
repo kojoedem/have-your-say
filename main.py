@@ -117,14 +117,18 @@ def request_otp(
         # Email flow
         print(f"\n[MOCK EMAIL] To: {email} | Code: {otp_code}\n")
 
-        # Trigger real email sending via SMTP
-        send_email_otp(email, otp_code)
+        # Trigger real email sending via SMTP and raise error with SMTP details if it fails
+        success, err_msg = send_email_otp(email, otp_code)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Email delivery failed: {err_msg}"
+            )
 
         return {
             "success": True,
             "message": "OTP sent successfully to your email address.",
-            "email": email,
-            "otp_code": otp_code
+            "email": email
         }
 
 @app.post("/api/auth/otp-verify")
