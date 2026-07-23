@@ -643,19 +643,18 @@
             document.getElementById('otp-request-form').classList.add('hidden');
             document.getElementById('otp-verify-form').classList.remove('hidden');
 
-            // Pop the banner showing the Mock OTP
+            // Pop the banner showing the Mock OTP ONLY for Telegram (since email mocking is completely removed as requested)
             const mockBanner = document.getElementById('mock-otp-banner');
-            document.getElementById('mock-otp-value').innerText = otpCode;
-            mockBanner.classList.remove('hidden');
-
-            const bannerTitle = mockBanner.querySelector('h3');
-            const bannerText = mockBanner.querySelector('p');
             if (activeAuthTab === 'telegram') {
+                document.getElementById('mock-otp-value').innerText = otpCode;
+                mockBanner.classList.remove('hidden');
+
+                const bannerTitle = mockBanner.querySelector('h3');
+                const bannerText = mockBanner.querySelector('p');
                 bannerTitle.innerText = "Mock Telegram/SMS Dispatcher";
                 bannerText.innerHTML = `We generated code <span class="font-mono font-bold bg-amber-400 text-slate-950 px-2 py-0.5 rounded text-sm" id="mock-otp-value">${otpCode}</span> for your phone number.`;
             } else {
-                bannerTitle.innerText = "Mock Email Dispatcher";
-                bannerText.innerHTML = `We generated code <span class="font-mono font-bold bg-amber-400 text-slate-950 px-2 py-0.5 rounded text-sm" id="mock-otp-value">${otpCode}</span> for your email address.`;
+                mockBanner.classList.add('hidden');
             }
 
             const changeText = document.getElementById('change-identifier-text');
