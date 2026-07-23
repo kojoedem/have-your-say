@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from database import init_db, get_db, User, Topic, Comment
 from config import BOT_USERNAME, BOT_TOKEN
 from otp import generate_otp, verify_otp
+from email_sender import send_email_otp
 
 app = FastAPI(title="Have Your Say - One Page App")
 
@@ -116,9 +117,12 @@ def request_otp(
         # Email flow
         print(f"\n[MOCK EMAIL] To: {email} | Code: {otp_code}\n")
 
+        # Trigger real email sending via SMTP
+        send_email_otp(email, otp_code)
+
         return {
             "success": True,
-            "message": "OTP sent successfully (mocked email).",
+            "message": "OTP sent successfully to your email address.",
             "email": email,
             "otp_code": otp_code
         }

@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 import pytest
+from unittest.mock import patch
 from main import app
 from database import Base, engine, SessionLocal, User
 
@@ -97,31 +98,35 @@ def test_logout():
 # --- New Tests for Telegram/Email Auth Features ---
 
 def test_email_request_and_verify_success():
-    # 1. Request OTP via email
-    response = client.post("/api/auth/otp-request", data={"email": "alice@example.com"})
-    assert response.status_code == 200
-    json_data = response.json()
-    assert json_data["success"] is True
-    assert json_data["email"] == "alice@example.com"
-    assert "otp_code" in json_data
-    otp_code = json_data["otp_code"]
+    with patch("main.send_email_otp") as mock_send_email:
+        # 1. Request OTP via email
+        response = client.post("/api/auth/otp-request", data={"email": "alice@example.com"})
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["success"] is True
+        assert json_data["email"] == "alice@example.com"
+        assert "otp_code" in json_data
+        otp_code = json_data["otp_code"]
 
-    # 2. Verify OTP with email
-    verify_resp = client.post("/api/auth/otp-verify", data={"email": "alice@example.com", "code": otp_code})
-    assert verify_resp.status_code == 200
-    data = verify_resp.json()
-    assert data["success"] is True
-    assert data["user"]["email"] == "alice@example.com"
-    assert data["user"]["phone"] is None
+        # Verify SMTP sender function is executed with proper arguments
+        mock_send_email.assert_called_once_with("alice@example.com", otp_code)
 
-    # Check session cookie is set
-    assert "session_token" in verify_resp.cookies
+        # 2. Verify OTP with email
+        verify_resp = client.post("/api/auth/otp-verify", data={"email": "alice@example.com", "code": otp_code})
+        assert verify_resp.status_code == 200
+        data = verify_resp.json()
+        assert data["success"] is True
+        assert data["user"]["email"] == "alice@example.com"
+        assert data["user"]["phone"] is None
 
-    # 3. Access current user /me and verify email is in response
-    me_resp = client.get("/api/auth/me")
-    assert me_resp.status_code == 200
-    assert me_resp.json()["authenticated"] is True
-    assert me_resp.json()["user"]["email"] == "alice@example.com"
+        # Check session cookie is set
+        assert "session_token" in verify_resp.cookies
+
+        # 3. Access current user /me and verify email is in response
+        me_resp = client.get("/api/auth/me")
+        assert me_resp.status_code == 200
+        assert me_resp.json()["authenticated"] is True
+        assert me_resp.json()["user"]["email"] == "alice@example.com"
 
 
 def test_request_validation_errors():
