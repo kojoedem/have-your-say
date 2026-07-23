@@ -26,6 +26,96 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Initialize database
 init_db()
 
+# --- Telegram Bot Background Polling and Mapping ---
+import threading
+import time
+import urllib.request
+import urllib.parse
+import json
+
+# Global mapping for phone -> chat_id
+user_telegram_mapping = {}
+
+def telegram_bot_poll():
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        print("[Telegram Bot] TELEGRAM_BOT_TOKEN not set. Polling inactive.")
+        return
+
+    print(f"[Telegram Bot] Starting background polling thread...")
+    offset = 0
+    while True:
+        try:
+            url = f"https://api.telegram.org/bot{token}/getUpdates?offset={offset}&timeout=10"
+            req = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(req, timeout=15) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                if data.get("ok"):
+                    for update in data.get("result", []):
+                        update_id = update.get("update_id")
+                        if update_id >= offset:
+                            offset = update_id + 1
+
+                        message = update.get("message")
+                        if not message:
+                            continue
+
+                        chat_id = message.get("chat", {}).get("id")
+                        text = message.get("text", "")
+
+                        if text.startswith("/start "):
+                            payload = text.split("/start ")[1]
+                            if payload.startswith("login_"):
+                                phone = payload.split("login_")[1]
+                                user_telegram_mapping[phone] = chat_id
+
+                                # Generate OTP code and save to DB
+                                otp_code = f"{random.randint(100000, 999999)}"
+                                otp_expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=10)
+
+                                # Access database
+                                from database import SessionLocal, User
+                                db = SessionLocal()
+                                try:
+                                    user = db.query(User).filter(User.phone == phone).first()
+                                    if not user:
+                                        user = User(
+                                            phone=phone,
+                                            otp_code=otp_code,
+                                            otp_expires=otp_expires,
+                                            is_verified=False
+                                        )
+                                        db.add(user)
+                                    else:
+                                        user.otp_code = otp_code
+                                        user.otp_expires = otp_expires
+                                        user.is_verified = False
+                                    db.commit()
+
+                                    # Send success OTP reply via Telegram
+                                    reply_msg = f"✅ Account linked successfully!\n\n🔐 Your Have Your Say OTP code is: {otp_code}\n\nDo not share this code."
+                                    send_url = f"https://api.telegram.org/bot{token}/sendMessage"
+                                    send_data = urllib.parse.urlencode({
+                                        "chat_id": chat_id,
+                                        "text": reply_msg
+                                    }).encode("utf-8")
+                                    send_req = urllib.request.Request(send_url, data=send_data, method="POST")
+                                    with urllib.request.urlopen(send_req, timeout=5) as send_resp:
+                                        pass
+                                    print(f"[Telegram Bot] Link & OTP sent to {phone} (Chat ID {chat_id})")
+                                except Exception as dberr:
+                                    print(f"[Telegram Bot DB Error] {dberr}")
+                                finally:
+                                    db.close()
+        except Exception as e:
+            # Avoid logging excessive errors if offline/invalid token
+            time.sleep(5)
+        time.sleep(2)
+
+# Start background thread
+polling_thread = threading.Thread(target=telegram_bot_poll, daemon=True)
+polling_thread.start()
+
 # --- Helper to get authenticated user ---
 def get_current_user(session_token: Optional[str] = Cookie(None), db: Session = Depends(get_db)) -> Optional[User]:
     if not session_token:
@@ -55,11 +145,68 @@ def read_index():
 def request_otp(phone: str = Form(...), db: Session = Depends(get_db)):
     phone = phone.strip()
     if not phone:
-        raise HTTPException(status_code=400, detail="Phone number is required.")
+        raise HTTPException(status_code=400, detail="Phone number, Telegram ID, or Email is required.")
+
+    # Check if the input is an email address
+    is_email = "@" in phone
 
     otp_code = f"{random.randint(100000, 999999)}"
     otp_expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=10)
 
+    telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    telegram_username = os.getenv("TELEGRAM_BOT_USERNAME", "HaveYourSayBot")
+
+    # If it is not an email and Telegram Bot is fully configured, check for deep link association
+    if not is_email and telegram_token:
+        chat_id = user_telegram_mapping.get(phone)
+        if not chat_id:
+            # Not linked yet! Return a redirect response with the Telegram deep link
+            telegram_link = f"https://t.me/{telegram_username}?start=login_{phone}"
+            return {
+                "success": True,
+                "status": "redirect",
+                "telegram_link": telegram_link,
+                "message": "Open Telegram to link your account and receive your OTP."
+            }
+        else:
+            # Already linked! Send direct Telegram message
+            user = db.query(User).filter(User.phone == phone).first()
+            if not user:
+                user = User(
+                    phone=phone,
+                    otp_code=otp_code,
+                    otp_expires=otp_expires,
+                    is_verified=False
+                )
+                db.add(user)
+            else:
+                user.otp_code = otp_code
+                user.otp_expires = otp_expires
+                user.is_verified = False
+            db.commit()
+
+            try:
+                message = f"🔐 Your Have Your Say OTP code is: {otp_code}\n\nDo not share this code."
+                url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+                data = urllib.parse.urlencode({
+                    "chat_id": chat_id,
+                    "text": message
+                }).encode("utf-8")
+                req = urllib.request.Request(url, data=data, method="POST")
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    pass
+                print(f"[Telegram Bot] Sent direct OTP to Chat ID {chat_id}.")
+            except Exception as e:
+                print(f"[Telegram Bot Error] Failed to send direct message: {e}")
+
+            return {
+                "success": True,
+                "message": "OTP sent via Telegram.",
+                "phone": phone,
+                "otp_code": otp_code
+            }
+
+    # Standard email or mock fallback login
     user = db.query(User).filter(User.phone == phone).first()
     if not user:
         user = User(
@@ -76,35 +223,14 @@ def request_otp(phone: str = Form(...), db: Session = Depends(get_db)):
 
     db.commit()
 
-    print(f"\n[MOCK SMS] To: {phone} | Code: {otp_code}\n")
-
-    # Send via Telegram Bot if TELEGRAM_BOT_TOKEN is set
-    telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
-    if telegram_token:
-        chat_id = "".join([c for c in phone if c.isdigit() or c == "-"])
-        if chat_id:
-            try:
-                import urllib.request
-                import urllib.parse
-                import json
-
-                message = f"Your Have Your Say OTP code is: {otp_code}"
-                url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
-                data = urllib.parse.urlencode({
-                    "chat_id": chat_id,
-                    "text": message
-                }).encode("utf-8")
-
-                req = urllib.request.Request(url, data=data, method="POST")
-                with urllib.request.urlopen(req, timeout=5) as response:
-                    res_body = response.read().decode("utf-8")
-                    print(f"[Telegram Bot] Sent to Chat ID {chat_id}. Response: {res_body}")
-            except Exception as e:
-                print(f"[Telegram Bot Error] Failed to send message: {e}")
+    if is_email:
+        print(f"\n[MOCK EMAIL] To: {phone} | Code: {otp_code}\n")
+    else:
+        print(f"\n[MOCK SMS] To: {phone} | Code: {otp_code}\n")
 
     return {
         "success": True,
-        "message": "OTP sent successfully (mocked).",
+        "message": f"OTP sent successfully ({'mocked email' if is_email else 'mocked SMS'}).",
         "phone": phone,
         "otp_code": otp_code
     }
