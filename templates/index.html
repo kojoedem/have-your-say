@@ -300,7 +300,7 @@
                                     </button>
                                     <button type="button" onclick="extractVideoFrame()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition flex items-center space-x-1 shadow-md shadow-emerald-600/10">
                                         <i data-lucide="image" class="h-3.5 w-3.5"></i>
-                                        <span>Share Current Frame</span>
+                                        <span>Convert Current Frame</span>
                                     </button>
                                     <button type="button" onclick="confirmVideoTrim()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center space-x-1 shadow-md shadow-indigo-600/10">
                                         <i data-lucide="scissors" class="h-3.5 w-3.5"></i>
@@ -852,6 +852,23 @@
             }
         }
 
+        function dataURLtoFile(dataurl, filename) {
+            try {
+                const arr = dataurl.split(',');
+                const mime = arr[0].match(/:(.*?);/)[1];
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                return new File([u8arr], filename, { type: mime });
+            } catch (err) {
+                console.error("Failed to convert dataURL to file:", err);
+                return null;
+            }
+        }
+
         function togglePlayPause() {
             const videoPreview = document.getElementById('cutter-preview-video');
             if (videoPreview) {
@@ -984,43 +1001,54 @@
 
         function extractVideoFrame() {
             const videoPreview = document.getElementById('cutter-preview-video');
-            if (!videoPreview) return;
+            if (!videoPreview || !currentVideoFile) return;
 
-            const canvas = document.createElement('canvas');
+            // Hide Cutter Frame and Show processing screen overlay
+            document.getElementById('video-cutter-frame').classList.add('hidden');
+            showGifProcessingFrame(true);
 
-            // Limit output resolution to max 480px width for incredibly fast upload
-            const maxWidth = 480;
-            let width = videoPreview.videoWidth || 640;
-            let height = videoPreview.videoHeight || 480;
-            if (width > maxWidth) {
-                height = Math.round((maxWidth / width) * height);
-                width = maxWidth;
+            let start = videoPreview.currentTime || 0;
+            let totalDuration = videoPreview.duration || 10;
+            let clipDuration = 1.5; // Short, lightweight clip to capture a "feel" of the video as an animated GIF
+            if (start + clipDuration > totalDuration) {
+                start = Math.max(0, totalDuration - clipDuration);
             }
 
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
+            const blobURL = URL.createObjectURL(currentVideoFile);
 
-            // Compress to JPEG with 0.5 quality to make file size tiny and uploads lightning fast
-            const dataURL = canvas.toDataURL('image/jpeg', 0.5);
+            // Create highly optimized animated GIF for lightning fast conversion and tiny upload size
+            gifshot.createGIF({
+                video: [blobURL],
+                offset: start,
+                videoDuration: clipDuration,
+                numFrames: 10, // Fewer frames for extremely rapid processing
+                interval: clipDuration / 10,
+                gifWidth: 320, // Reduced resolution for quick upload and rendering
+                gifHeight: 240,
+                sampleInterval: 10, // Optimized pixel sampling factor for speedy color palette building
+                numWorkers: 2, // Stable multi-threaded frame processing
+                keepCameraOn: false
+            }, function (obj) {
+                showGifProcessingFrame(false);
+                URL.revokeObjectURL(blobURL);
 
-            const previewContainer = document.getElementById('image-preview-container');
-            const previewImg = document.getElementById('image-preview');
-            const clearBtn = document.getElementById('remove-preview-btn');
+                if (obj.error) {
+                    alert("Error converting frame to GIF: " + obj.errorMsg);
+                    return;
+                }
 
-            previewImg.src = dataURL;
-            previewContainer.classList.remove('hidden');
-            clearBtn.classList.remove('hidden');
+                const previewContainer = document.getElementById('image-preview-container');
+                const previewImg = document.getElementById('image-preview');
+                const clearBtn = document.getElementById('remove-preview-btn');
 
-            document.getElementById('video-cutter-frame').classList.add('hidden');
+                const base64Data = obj.image;
+                previewImg.src = base64Data;
+                previewContainer.classList.remove('hidden');
+                clearBtn.classList.remove('hidden');
 
-            fetch(dataURL)
-                .then(res => res.blob())
-                .then(blob => {
-                    const extractedFile = new File([blob], "extracted-frame.jpg", { type: "image/jpeg" });
-                    window.convertedGifFile = extractedFile;
-                });
+                // Synchronously and instantly convert the base64 data to File to eliminate any race conditions!
+                window.convertedGifFile = dataURLtoFile(base64Data, "extracted-frame.gif");
+            });
         }
 
         function confirmVideoTrim() {
@@ -1048,10 +1076,10 @@
                 videoDuration: duration,
                 numFrames: 15, // 15 frames is extremely lightweight and fast
                 interval: duration / 15,
-                gifWidth: 200, // Compact resolution for tiny file footprint
-                gifHeight: 150,
-                sampleInterval: 15, // Highly optimized pixel sampling factor for rapid color palette building
-                numWorkers: 4, // Multi-threaded frames processing
+                gifWidth: 320, // Reduced resolution for fast upload and speedy conversion
+                gifHeight: 240,
+                sampleInterval: 10, // Optimized pixel sampling factor for rapid color palette building
+                numWorkers: 2, // Stable multi-threaded frame processing
                 keepCameraOn: false
             }, function (obj) {
                 showGifProcessingFrame(false);
@@ -1071,13 +1099,8 @@
                 previewContainer.classList.remove('hidden');
                 clearBtn.classList.remove('hidden');
 
-                // Convert base64 back to Blob to upload
-                fetch(base64Data)
-                    .then(res => res.blob())
-                    .then(blob => {
-                        const gifFile = new File([blob], "converted.gif", { type: "image/gif" });
-                        window.convertedGifFile = gifFile;
-                    });
+                // Synchronously and instantly convert the base64 data to File to eliminate any race conditions!
+                window.convertedGifFile = dataURLtoFile(base64Data, "converted.gif");
             });
         }
 
