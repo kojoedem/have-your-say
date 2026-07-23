@@ -415,6 +415,17 @@
                                 <img id="image-preview" src="#" alt="Upload preview" class="w-full h-40 object-cover opacity-90">
                                 <video id="video-preview-element" class="hidden w-full h-40 object-cover opacity-90" autoplay loop muted playsinline></video>
                             </div>
+
+                            <!-- Frame Selector Container -->
+                            <div id="frame-selector-container" class="hidden mt-4 bg-slate-950/60 border border-slate-850 p-4 rounded-xl space-y-3">
+                                <div class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
+                                    <span>Select a 1-Minute Segment (Frame)</span>
+                                    <span class="text-indigo-400 font-semibold lowercase tracking-tight">Only this frame is shared & others deleted</span>
+                                </div>
+                                <div id="frames-grid" class="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto pr-1">
+                                    <!-- Populated dynamically with Frame 1, Frame 2, etc. -->
+                                </div>
+                            </div>
                         </form>
                     </div>
 
@@ -926,6 +937,8 @@
         let currentVideoDuration = 0;
 
         // Handles both images and videos
+        let selectedFrameIndex = 0;
+
         function handleMediaSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -934,20 +947,64 @@
             const previewImg = document.getElementById('image-preview');
             const videoPreview = document.getElementById('video-preview-element');
             const clearBtn = document.getElementById('remove-preview-btn');
+            const frameSelectorContainer = document.getElementById('frame-selector-container');
+            const framesGrid = document.getElementById('frames-grid');
 
             window.convertedGifFile = null;
+            selectedFrameIndex = 0;
 
             if (file.type.startsWith('video/')) {
                 // Video selected: show inline video preview, hide image preview
                 if (previewImg) previewImg.classList.add('hidden');
                 if (videoPreview) {
-                    videoPreview.src = URL.createObjectURL(file);
+                    const videoURL = URL.createObjectURL(file);
+                    videoPreview.src = videoURL;
                     videoPreview.classList.remove('hidden');
+
+                    // Create dummy element to read duration and build frames grid
+                    const tempVid = document.createElement('video');
+                    tempVid.src = videoURL;
+                    tempVid.onloadedmetadata = () => {
+                        const duration = tempVid.duration;
+                        const numFrames = Math.ceil(duration / 60);
+                        if (framesGrid) {
+                            framesGrid.innerHTML = '';
+                            for (let i = 0; i < numFrames; i++) {
+                                const startMin = i;
+                                const endMin = Math.min((i + 1), duration / 60);
+                                const frameBtn = document.createElement('button');
+                                frameBtn.type = "button";
+                                frameBtn.id = `frame-btn-${i}`;
+                                frameBtn.className = `p-3 rounded-xl border text-left flex flex-col justify-between transition-all duration-150 ${i === 0 ? 'bg-indigo-600/10 border-indigo-500 text-indigo-300 font-bold shadow' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'}`;
+                                frameBtn.onclick = () => {
+                                    // Highlight selected frame
+                                    for (let j = 0; j < numFrames; j++) {
+                                        const otherBtn = document.getElementById(`frame-btn-${j}`);
+                                        if (otherBtn) {
+                                            otherBtn.className = "p-3 rounded-xl border text-left flex flex-col justify-between transition-all duration-150 bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200";
+                                        }
+                                    }
+                                    frameBtn.className = "p-3 rounded-xl border text-left flex flex-col justify-between transition-all duration-150 bg-indigo-600/10 border-indigo-500 text-indigo-300 font-bold shadow";
+                                    selectedFrameIndex = i;
+                                    // Seek player preview to show the beginning of selected frame
+                                    videoPreview.currentTime = i * 60;
+                                };
+
+                                frameBtn.innerHTML = `
+                                    <span class="text-xs">Frame ${i + 1}</span>
+                                    <span class="text-[10px] font-mono text-slate-500 mt-1">${startMin}:00 - ${Math.floor(endMin)}:${String(Math.round((endMin % 1) * 60)).padStart(2, '0')}</span>
+                                `;
+                                framesGrid.appendChild(frameBtn);
+                            }
+                        }
+                        if (frameSelectorContainer) frameSelectorContainer.classList.remove('hidden');
+                    };
                 }
                 if (previewContainer) previewContainer.classList.remove('hidden');
                 if (clearBtn) clearBtn.classList.remove('hidden');
             } else if (file.type.startsWith('image/')) {
-                // Image selected: show inline image preview, hide video preview
+                // Image selected: show inline image preview, hide video preview and frame selector
+                if (frameSelectorContainer) frameSelectorContainer.classList.add('hidden');
                 if (videoPreview) {
                     videoPreview.classList.add('hidden');
                     videoPreview.src = "";
@@ -1221,11 +1278,20 @@
             const input = document.getElementById('topic-image');
             input.value = "";
             window.convertedGifFile = null;
+            selectedFrameIndex = 0;
             document.getElementById('image-preview').classList.add('hidden');
             const videoPreview = document.getElementById('video-preview-element');
             if (videoPreview) {
                 videoPreview.classList.add('hidden');
                 videoPreview.src = "";
+            }
+            const frameSelectorContainer = document.getElementById('frame-selector-container');
+            if (frameSelectorContainer) {
+                frameSelectorContainer.classList.add('hidden');
+            }
+            const framesGrid = document.getElementById('frames-grid');
+            if (framesGrid) {
+                framesGrid.innerHTML = '';
             }
             document.getElementById('image-preview-container').classList.add('hidden');
             document.getElementById('remove-preview-btn').classList.add('hidden');
@@ -1250,6 +1316,9 @@
                 fd.append('allow_download', allowDownload);
                 if (imageFile) {
                     fd.append('image', imageFile);
+                    if (imageFile.type.startsWith('video/')) {
+                        fd.append('selected_frame_index', selectedFrameIndex);
+                    }
                 }
 
                 const res = await fetch('/api/topics', {

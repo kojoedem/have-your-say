@@ -29,9 +29,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 init_db()
 
 # Background task for video processing
-def background_video_processing(video_id: int, filename: str, db_session_maker):
-    from video_processor import process_video_segments_and_thumbnails
-    result = process_video_segments_and_thumbnails(video_id, filename)
+def background_video_processing(video_id: int, filename: str, db_session_maker, frame_index: int = 0):
+    from video_processor import trim_selected_video_frame
+    result = trim_selected_video_frame(video_id, filename, frame_index)
     if result:
         db = db_session_maker()
         try:
@@ -291,6 +291,7 @@ def create_topic(
     image: Optional[UploadFile] = File(None),
     location: Optional[str] = Form(None),
     allow_download: bool = Form(True),
+    selected_frame_index: int = Form(0),
     user: User = Depends(require_current_user),
     db: Session = Depends(get_db)
 ):
@@ -331,7 +332,8 @@ def create_topic(
                 background_video_processing,
                 video_record.id,
                 image.filename,
-                SessionLocal
+                SessionLocal,
+                selected_frame_index
             )
         else:
             ext = os.path.splitext(image.filename)[1]

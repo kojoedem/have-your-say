@@ -11,7 +11,7 @@ VIDEO_ORIGINAL_DIR.mkdir(parents=True, exist_ok=True)
 VIDEO_SEGMENT_DIR.mkdir(parents=True, exist_ok=True)
 VIDEO_THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
 
-THUMBNAIL_FPS = 0.5  # 1 frame every 2 seconds (1/2 = 0.5 fps)
+THUMBNAIL_FPS = 0.5  # 1 frame every 2 seconds
 
 def get_video_duration(filepath: str) -> float:
     """
@@ -31,61 +31,67 @@ def get_video_duration(filepath: str) -> float:
         print(f"Error getting duration: {e}")
         return 0.0
 
-def process_video_segments_and_thumbnails(video_id: int, original_filename: str):
+def trim_selected_video_frame(video_id: int, original_filename: str, frame_index: int):
     """
-    Processes the video:
-    1. Splits the video into 60-second segments using FFmpeg.
-    2. Generates timeline preview thumbnails at 2-second intervals (FPS = 0.5).
+    Extracts ONLY the selected 60-second section (frame) of the video.
+    Deletes the original video file immediately afterwards to conserve storage.
+    Generates preview thumbnails from the trimmed 60-second clip.
     """
     original_path = VIDEO_ORIGINAL_DIR / f"{video_id}_{original_filename}"
     if not original_path.exists():
         print(f"Original video not found: {original_path}")
         return False
 
-    duration = get_video_duration(str(original_path))
+    # Calculate offset
+    start_seconds = frame_index * 60
 
-    # 1. Split into 60-second chunks
-    segment_output = VIDEO_SEGMENT_DIR / f"{video_id}_%03d.mp4"
+    # 1. Trim the selected 60-second section into segment 000
+    trimmed_segment_path = VIDEO_SEGMENT_DIR / f"{video_id}_000.mp4"
     try:
-        segment_cmd = [
+        # Use -ss before -i for fast seeking
+        trim_cmd = [
             "ffmpeg",
             "-y",
+            "-ss", str(start_seconds),
+            "-t", "60",
             "-i", str(original_path),
-            "-c", "copy",
-            "-map", "0",
-            "-f", "segment",
-            "-segment_time", "60",
-            str(segment_output)
+            "-c:v", "libx264",  # re-encode to ensure keyframe alignment and robust browser playback
+            "-c:a", "aac",
+            "-strict", "experimental",
+            str(trimmed_segment_path)
         ]
-        subprocess.run(segment_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(trim_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except Exception as e:
-        print(f"Error segmenting video {video_id}: {e}")
+        print(f"Error trimming video frame {video_id} (frame {frame_index}): {e}")
         return False
 
-    # Count generated segments
-    segments_count = 0
-    for file in VIDEO_SEGMENT_DIR.glob(f"{video_id}_*.mp4"):
-        segments_count += 1
+    # Get the duration of the extracted segment
+    trimmed_duration = get_video_duration(str(trimmed_segment_path))
 
-    # 2. Extract preview frame thumbnails (160x90 resolution, highly lightweight)
+    # 2. Extract preview thumbnails from the trimmed 1-minute clip
+    # This is fast, light, and optimized!
     thumbnail_output = VIDEO_THUMBNAIL_DIR / f"{video_id}_%03d.jpg"
     try:
-        # fps=0.5 -> 1 frame every 2 seconds
-        # scale=160:-1 -> preserve aspect ratio with width 160
         thumbnail_cmd = [
             "ffmpeg",
             "-y",
-            "-i", str(original_path),
+            "-i", str(trimmed_segment_path),
             "-vf", f"fps={THUMBNAIL_FPS},scale=160:-1",
-            "-q:v", "5",  # moderate quality to save storage
+            "-q:v", "5",
             str(thumbnail_output)
         ]
         subprocess.run(thumbnail_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except Exception as e:
-        print(f"Error generating thumbnails for video {video_id}: {e}")
+        print(f"Error generating thumbnails for trimmed video {video_id}: {e}")
 
-    # Update database metadata outside of here or return values
+    # 3. IMMEDIATELY delete the original heavy video file
+    try:
+        original_path.unlink()
+        print(f"[video_processor] Successfully deleted original video {original_path}")
+    except Exception as e:
+        print(f"[video_processor] Error deleting original video: {e}")
+
     return {
-        "duration": duration,
-        "segments_count": segments_count
+        "duration": trimmed_duration,
+        "segments_count": 1  # Only the single 60s selected segment is kept
     }
