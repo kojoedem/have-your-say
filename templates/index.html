@@ -151,37 +151,10 @@
                     </div>
 
                     <button type="submit" id="request-otp-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white py-3 px-4 rounded-xl font-semibold shadow-lg shadow-indigo-600/15 hover:shadow-indigo-600/25 transition-all duration-200 flex items-center justify-center space-x-2">
-                        <span>Request OTP Code</span>
+                        <span>Verify via Telegram</span>
                         <i data-lucide="send" class="h-5 w-5"></i>
                     </button>
                 </form>
-
-                <!-- Step 1.5: Telegram Redirect Link (Hidden initially) -->
-                <div id="telegram-redirect-container" class="hidden space-y-5">
-                    <div class="text-center p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-2">
-                        <p class="text-xs text-indigo-300 font-semibold uppercase tracking-wider">Telegram Linking Required</p>
-                        <p class="text-xs text-slate-300 leading-relaxed">
-                            To secure your account and receive OTPs, please link your Telegram account with our bot first.
-                        </p>
-                    </div>
-
-                    <a id="telegram-redirect-link" href="#" target="_blank" class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white py-3 px-4 rounded-xl font-semibold shadow-lg shadow-indigo-600/15 hover:shadow-indigo-600/25 transition-all duration-200 flex items-center justify-center space-x-2">
-                        <i data-lucide="external-link" class="h-5 w-5"></i>
-                        <span>Open Telegram to Link Account</span>
-                    </a>
-
-                    <div class="flex items-center justify-between pt-2">
-                        <button type="button" onclick="showRequestOTPForm()" class="text-xs text-slate-400 hover:text-slate-300 font-medium transition flex items-center space-x-1">
-                            <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
-                            <span>Go Back</span>
-                        </button>
-
-                        <button type="button" onclick="showOTPVerifyAfterRedirect()" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition flex items-center space-x-1">
-                            <span>Continue to Enter Code</span>
-                            <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
-                        </button>
-                    </div>
-                </div>
 
                 <!-- Step 2: Verify OTP Form (Hidden initially) -->
                 <form id="otp-verify-form" onsubmit="handleVerifyOTP(event)" class="hidden space-y-5">
@@ -661,8 +634,6 @@
         function showRequestOTPForm() {
             document.getElementById('otp-request-form').classList.remove('hidden');
             document.getElementById('otp-verify-form').classList.add('hidden');
-            const redirectContainer = document.getElementById('telegram-redirect-container');
-            if (redirectContainer) redirectContainer.classList.add('hidden');
             document.getElementById('mock-otp-banner').classList.add('hidden');
             const telegramBtn = document.getElementById('telegram-link-btn');
             if (telegramBtn) telegramBtn.remove();
@@ -671,8 +642,6 @@
         function showVerifyOTPForm(identifier, otpCode, telegramLink = null) {
             document.getElementById('otp-request-form').classList.add('hidden');
             document.getElementById('otp-verify-form').classList.remove('hidden');
-            const redirectContainer = document.getElementById('telegram-redirect-container');
-            if (redirectContainer) redirectContainer.classList.add('hidden');
 
             // Pop the banner showing the Mock OTP
             const mockBanner = document.getElementById('mock-otp-banner');

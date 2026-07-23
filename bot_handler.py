@@ -64,7 +64,8 @@ def run_bot():
     app.add_handler(CommandHandler("start", start))
 
     print("Starting Telegram Bot polling...")
-    app.run_polling()
+    # close_loop=False and stop_signals=False prevent signal handler errors on background threads
+    app.run_polling(close_loop=False, stop_signals=False)
 
 if __name__ == "__main__":
     run_bot()
