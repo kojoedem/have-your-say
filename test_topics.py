@@ -302,3 +302,33 @@ def test_delete_comment():
     # Verify deleted
     topics = client.get("/api/topics").json()["topics"]
     assert len(topics[0]["comments"]) == 0
+
+def test_create_topic_with_video_processing():
+    create_and_verify_user("+15551119999", "videomaker", "Direct video streaming")
+
+    # Mock video file upload
+    file_content = b"fake-mp4-video-header-and-body-content"
+    video_file = io.BytesIO(file_content)
+
+    resp = client.post(
+        "/api/topics",
+        data={"text": "Check out this beautiful status clip!", "location": "Sweden"},
+        files={"image": ("my_holiday.mp4", video_file, "video/mp4")}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["topic"]["text"] == "Check out this beautiful status clip!"
+    assert data["topic"]["video"] is not None
+    assert data["topic"]["video"]["title"] == "my_holiday.mp4"
+    assert data["topic"]["video"]["filename"] == "my_holiday.mp4"
+
+    video_id = data["topic"]["video"]["id"]
+
+    # Try retrieving video metadata
+    meta_resp = client.get(f"/api/videos/{video_id}/metadata")
+    assert meta_resp.status_code == 200
+    meta_data = meta_resp.json()
+    assert meta_data["success"] is True
+    assert meta_data["video"]["id"] == video_id
+    assert meta_data["video"]["title"] == "my_holiday.mp4"
