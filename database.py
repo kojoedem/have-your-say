@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, inspect, text  # type: ignore[import]
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship  # type: ignore[import]
+
 #this is the database
 DATABASE_URL = "sqlite:///have_your_say.db"
 
@@ -13,7 +14,9 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    phone = Column(String, unique=True, index=True, nullable=False)
+    phone = Column(String, unique=True, index=True, nullable=True)
+    email = Column(String, unique=True, index=True, nullable=True)
+    telegram_chat_id = Column(String, unique=True, index=True, nullable=True)
     username = Column(String, nullable=True)
     alias = Column(String, nullable=True)
     belief = Column(String, nullable=True)
@@ -57,7 +60,42 @@ class Comment(Base):
     parent = relationship("Comment", back_populates="replies", remote_side=[id])
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    inspector = inspect(engine)
+    if "users" in inspector.get_table_names():
+        columns_info = inspector.get_columns('users')
+        columns = [col['name'] for col in columns_info]
+        phone_info = next((col for col in columns_info if col['name'] == 'phone'), None)
+
+        is_phone_not_nullable = phone_info and not phone_info.get('nullable', True)
+
+        if 'email' not in columns or 'telegram_chat_id' not in columns or is_phone_not_nullable:
+            # Recreate table strategy to preserve constraints and add columns cleanly
+            with engine.begin() as conn:
+                # 1. Disable foreign key checks temporarily
+                conn.execute(text("PRAGMA foreign_keys=OFF"))
+
+                # 2. Rename existing table
+                conn.execute(text("ALTER TABLE users RENAME TO users_old"))
+
+                # 3. Create the new users table using Base metadata
+                Base.metadata.create_all(bind=engine)
+
+                # 4. Copy data from old table to new table
+                old_cols = [c for c in columns if c in ['id', 'phone', 'username', 'alias', 'belief', 'otp_code', 'otp_expires', 'is_verified', 'session_token']]
+                old_cols_str = ", ".join(old_cols)
+                conn.execute(text(f"INSERT INTO users ({old_cols_str}) SELECT {old_cols_str} FROM users_old"))
+
+                # 5. Drop old table
+                conn.execute(text("DROP TABLE users_old"))
+
+                # 6. Re-enable foreign key checks
+                conn.execute(text("PRAGMA foreign_keys=ON"))
+        else:
+            Base.metadata.create_all(bind=engine)
+    else:
+        Base.metadata.create_all(bind=engine)
+
+    # Now handle topics table migration
     inspector = inspect(engine)
     if "topics" in inspector.get_table_names():
         columns = [col['name'] for col in inspector.get_columns('topics')]
