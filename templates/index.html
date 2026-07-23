@@ -104,7 +104,7 @@
 
                 <!-- Step 1: Request OTP Form -->
                 <form id="otp-request-form" onsubmit="handleRequestOTP(event)" class="space-y-5">
-                    <!-- Telegram/Phone Input Section -->
+                    <!-- Telegram/Phone Input Container -->
                     <div id="phone-input-container" class="space-y-4">
                         <div>
                             <label for="phone" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Phone Number or Telegram Chat ID</label>
@@ -112,13 +112,13 @@
                                 <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
                                     <i data-lucide="phone" class="h-5 w-5"></i>
                                 </span>
-                                <input type="tel" id="phone" required placeholder="e.g. +15550000000" pattern="^\+?[0-9\s\-()]{5,25}$" title="Please enter a valid phone number or Telegram Chat ID with at least 5 digits." class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
+                                <input type="tel" id="phone" required placeholder="e.g. +15550000000 or 123456789" pattern="^\+?[0-9\s\-()]{5,25}$" title="Please enter a valid phone number or Telegram Chat ID with at least 5 digits." class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
                             </div>
-                            <p class="text-[10px] text-slate-400 mt-2 leading-relaxed">We deliver OTPs via Telegram Bot to reduce operational costs. If your account isn't linked yet, we'll guide you to Telegram first.</p>
+                            <p class="text-[10px] text-slate-400 mt-2 leading-relaxed font-medium">We deliver OTPs via Telegram Bot to reduce operational costs. Enter your registered phone number or Telegram Chat ID to verify.</p>
                         </div>
                     </div>
 
-                    <!-- Email Input Section (hidden initially) -->
+                    <!-- Email Input Container (initially hidden) -->
                     <div id="email-input-container" class="hidden space-y-4">
                         <div>
                             <label for="email" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Email Address</label>
@@ -128,7 +128,35 @@
                                 </span>
                                 <input type="email" id="email" placeholder="e.g. you@example.com" class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
                             </div>
-                            <p class="text-[10px] text-slate-400 mt-2 leading-relaxed">Enter your email address to receive your 6-digit OTP code securely.</p>
+                            <p class="text-[10px] text-slate-400 mt-2 leading-relaxed font-medium">Enter your email address to receive your 6-digit OTP code securely in your inbox.</p>
+                        </div>
+                    </div>
+
+                    <!-- Terms and Conditions Acceptance -->
+                    <div class="border border-slate-800 bg-slate-950/60 rounded-xl p-4 space-y-3">
+                        <div class="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                            <span>Terms and Conditions</span>
+                            <span class="text-indigo-400">Required</span>
+                        </div>
+                        <div class="h-24 overflow-y-auto text-[10px] text-slate-400 leading-relaxed pr-1 border-b border-slate-800/40 pb-2">
+                            <p class="font-bold text-slate-300 mb-1">By accessing and using Have Your Say, you agree to the following terms:</p>
+                            <p class="font-bold mt-1.5 text-slate-200">User Responsibility</p>
+                            <p>You are fully responsible for any content, comments, opinions, or materials you post on this platform. You agree that your actions and contributions must comply with applicable laws and respect the rights and privacy of others.</p>
+                            <p class="font-bold mt-1.5 text-slate-200">Acceptable Use</p>
+                            <p>You must not use this platform to post illegal content, threats, harassment, hate speech, abuse, misinformation, or content intended to harm others.</p>
+                            <p class="font-bold mt-1.5 text-slate-200">Respect and Privacy</p>
+                            <p>Users must respect other members of the community. Sharing personal information about others without permission is prohibited.</p>
+                            <p class="font-bold mt-1.5 text-slate-200">Platform Rights</p>
+                            <p>Have Your Say reserves the right to remove content, restrict access, or suspend accounts that violate these terms or negatively affect the safety and integrity of the platform.</p>
+                            <p class="font-bold mt-1.5 text-slate-200">No Guarantee of User Content</p>
+                            <p>Opinions and statements shared by users belong to the individuals who post them and do not represent the views of Have Your Say.</p>
+                            <p class="mt-2 text-slate-300 font-semibold">By continuing to use this platform, you confirm that you understand and accept these terms and agree to use the service responsibly. Although the platform may provide anonymity to users, anonymity does not remove responsibility for unlawful or harmful actions.</p>
+                        </div>
+                        <div class="flex items-start space-x-2">
+                            <input type="checkbox" id="accept-terms" class="mt-0.5 h-4 w-4 rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                            <label for="accept-terms" class="text-[11px] text-slate-300 cursor-pointer select-none leading-normal">
+                                I accept the Terms & Conditions and understand anonymity does not excuse unlawful behavior.
+                            </label>
                         </div>
                     </div>
 
@@ -140,6 +168,12 @@
 
                 <!-- Step 2: Verify OTP Form (Hidden initially) -->
                 <form id="otp-verify-form" onsubmit="handleVerifyOTP(event)" class="hidden space-y-5">
+                    <!-- OTP Dispatch Prompt Notice -->
+                    <div id="otp-sent-prompt" class="bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs p-3.5 rounded-xl flex items-start gap-2.5 shadow-lg shadow-indigo-500/5">
+                        <i data-lucide="info" class="h-5 w-5 text-indigo-400 shrink-0 mt-0.5 animate-pulse"></i>
+                        <span id="otp-sent-prompt-text" class="leading-relaxed"></span>
+                    </div>
+
                     <div>
                         <label for="code" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Verification Code</label>
                         <div class="relative">
@@ -153,7 +187,7 @@
                     <div class="flex items-center justify-between">
                         <button type="button" onclick="showRequestOTPForm()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition flex items-center space-x-1">
                             <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
-                            <span id="change-identifier-text">Change phone number</span>
+                            <span>Change phone number</span>
                         </button>
                     </div>
 
@@ -361,6 +395,7 @@
                             <!-- Preview placeholder -->
                             <div id="image-preview-container" class="hidden mt-3 border border-slate-800 rounded-xl overflow-hidden max-w-xs relative bg-slate-950">
                                 <img id="image-preview" src="#" alt="Upload preview" class="w-full h-40 object-cover opacity-90">
+                                <video id="video-preview-element" class="hidden w-full h-40 object-cover opacity-90" autoplay loop muted playsinline></video>
                             </div>
                         </form>
                     </div>
