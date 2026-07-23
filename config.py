@@ -1,11 +1,14 @@
 import os
-import env_var
 
+# bot token from BotFather
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-BOT_TOKEN = env_var.BOT_TOKEN
-BOT_USERNAME = env_var.BOT_USERNAME
-SMTP_SERVER = env_var.SMTP_SERVER
-SMTP_PORT = env_var.SMTP_PORT
-SMTP_USERNAME = env_var.SMTP_USERNAME
-SMTP_PASSWORD = env_var.SMTP_PASSWORD
-SMTP_SENDER = env_var.SMTP_SENDER
+# bot username (without @)
+BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "HaveYourSayBot")
+
+# SMTP Mail Server configurations
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "robinedemamedzo@gmail.com")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_SENDER = "robinedemamedzo@gmail.com"
