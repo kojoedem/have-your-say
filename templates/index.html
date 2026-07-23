@@ -113,21 +113,48 @@
                 <!-- Step 1: Request OTP Form -->
                 <form id="otp-request-form" onsubmit="handleRequestOTP(event)" class="space-y-5">
                     <div>
-                        <label for="phone" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Phone Number or Telegram Chat ID</label>
+                        <label for="phone" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Phone, Telegram ID, or Email</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
-                                <i data-lucide="phone" class="h-5 w-5"></i>
+                                <i data-lucide="shield-check" class="h-5 w-5"></i>
                             </span>
-                            <input type="tel" id="phone" required placeholder="e.g. +15550000000 or 123456789" pattern="^\+?[0-9\s\-()]{5,25}$" title="Please enter a valid phone number or Telegram Chat ID with at least 5 digits." class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
+                            <input type="text" id="phone" required placeholder="e.g. +15550000000, 123456789 or user@email.com" class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
                         </div>
-                        <p class="text-[10px] text-slate-400 mt-2 leading-relaxed">We deliver OTPs via Telegram Bot to reduce operational costs. Enter your registered phone number or Telegram Chat ID to verify.</p>
+                        <p class="text-[10px] text-slate-400 mt-2 leading-relaxed">We deliver OTPs via Telegram Bot or Email. Enter your registered phone number, Telegram Chat ID, or Email Address to continue.</p>
                     </div>
 
                     <button type="submit" id="request-otp-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white py-3 px-4 rounded-xl font-semibold shadow-lg shadow-indigo-600/15 hover:shadow-indigo-600/25 transition-all duration-200 flex items-center justify-center space-x-2">
-                        <span>Verify via Telegram</span>
+                        <span>Request OTP Code</span>
                         <i data-lucide="send" class="h-5 w-5"></i>
                     </button>
                 </form>
+
+                <!-- Step 1.5: Telegram Redirect Link (Hidden initially) -->
+                <div id="telegram-redirect-container" class="hidden space-y-5">
+                    <div class="text-center p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-2">
+                        <p class="text-xs text-indigo-300 font-semibold uppercase tracking-wider">Telegram Linking Required</p>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            To secure your account and receive OTPs, please link your Telegram account with our bot first.
+                        </p>
+                    </div>
+
+                    <a id="telegram-redirect-link" href="#" target="_blank" class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white py-3 px-4 rounded-xl font-semibold shadow-lg shadow-indigo-600/15 hover:shadow-indigo-600/25 transition-all duration-200 flex items-center justify-center space-x-2">
+                        <i data-lucide="external-link" class="h-5 w-5"></i>
+                        <span>Open Telegram to Link Account</span>
+                    </a>
+
+                    <div class="flex items-center justify-between pt-2">
+                        <button type="button" onclick="showRequestOTPForm()" class="text-xs text-slate-400 hover:text-slate-300 font-medium transition flex items-center space-x-1">
+                            <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                            <span>Go Back</span>
+                        </button>
+
+                        <button type="button" onclick="showOTPVerifyAfterRedirect()" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition flex items-center space-x-1">
+                            <span>Continue to Enter Code</span>
+                            <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
+                        </button>
+                    </div>
+                </div>
 
                 <!-- Step 2: Verify OTP Form (Hidden initially) -->
                 <form id="otp-verify-form" onsubmit="handleVerifyOTP(event)" class="hidden space-y-5">
@@ -567,12 +594,23 @@
         function showRequestOTPForm() {
             document.getElementById('otp-request-form').classList.remove('hidden');
             document.getElementById('otp-verify-form').classList.add('hidden');
+            const redirectContainer = document.getElementById('telegram-redirect-container');
+            if (redirectContainer) redirectContainer.classList.add('hidden');
             document.getElementById('mock-otp-banner').classList.add('hidden');
+        }
+
+        function showOTPVerifyAfterRedirect() {
+            const redirectContainer = document.getElementById('telegram-redirect-container');
+            if (redirectContainer) redirectContainer.classList.add('hidden');
+            document.getElementById('otp-verify-form').classList.remove('hidden');
+            document.getElementById('code').focus();
         }
 
         function showVerifyOTPForm(phone, otpCode) {
             document.getElementById('otp-request-form').classList.add('hidden');
             document.getElementById('otp-verify-form').classList.remove('hidden');
+            const redirectContainer = document.getElementById('telegram-redirect-container');
+            if (redirectContainer) redirectContainer.classList.add('hidden');
 
             // Pop the banner showing the Mock SMS OTP
             document.getElementById('mock-otp-value').innerText = otpCode;
@@ -594,12 +632,15 @@
             const phoneInput = document.getElementById('phone');
             const phone = phoneInput.value.trim();
 
-            // Clean and count digits in the phone number/ID
-            const digits = phone.replace(/\D/g, '');
-            if (digits.length < 5) {
-                alert("Please enter a valid Phone Number or Telegram Chat ID containing at least 5 digits.");
-                phoneInput.focus();
-                return;
+            const isEmail = phone.includes('@');
+            if (!isEmail) {
+                // Clean and count digits in the phone number/ID
+                const digits = phone.replace(/\D/g, '');
+                if (digits.length < 5) {
+                    alert("Please enter a valid Phone, Telegram Chat ID, or Email Address.");
+                    phoneInput.focus();
+                    return;
+                }
             }
 
             const btn = document.getElementById('request-otp-btn');
@@ -617,7 +658,21 @@
                 const data = await res.json();
 
                 if (res.ok && data.success) {
-                    showVerifyOTPForm(phone, data.otp_code);
+                    if (data.status === "redirect") {
+                        // Display the Telegram link page to link their account first
+                        document.getElementById('otp-request-form').classList.add('hidden');
+                        document.getElementById('otp-verify-form').classList.add('hidden');
+                        document.getElementById('mock-otp-banner').classList.add('hidden');
+
+                        const redirectContainer = document.getElementById('telegram-redirect-container');
+                        const redirectLink = document.getElementById('telegram-redirect-link');
+                        if (redirectContainer && redirectLink) {
+                            redirectLink.href = data.telegram_link;
+                            redirectContainer.classList.remove('hidden');
+                        }
+                    } else {
+                        showVerifyOTPForm(phone, data.otp_code);
+                    }
                 } else {
                     alert(data.detail || "Error requesting OTP code.");
                 }
@@ -626,7 +681,7 @@
                 alert("Failed to reach server. Try again.");
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = `<span>Verify via Telegram</span><i data-lucide="send" class="h-5 w-5"></i>`;
+                btn.innerHTML = `<span>Request OTP Code</span><i data-lucide="send" class="h-5 w-5"></i>`;
                 lucide.createIcons();
             }
         }
