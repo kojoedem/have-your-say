@@ -102,25 +102,52 @@
         <!-- --- SECTION 1: AUTHENTICATION SCREEN --- -->
         <section id="auth-screen" class="max-w-md mx-auto my-12 transition-all duration-350">
             <div class="bg-slate-900 border border-slate-800/80 rounded-2xl shadow-2xl p-8 shadow-indigo-500/5">
-                <div class="text-center mb-8">
+                <div class="text-center mb-6">
                     <div class="inline-flex p-3 bg-indigo-600/10 rounded-2xl border border-indigo-500/20 mb-4">
                         <i data-lucide="shield-check" class="h-8 w-8 text-indigo-400"></i>
                     </div>
                     <h2 class="text-2xl font-bold text-white">Join the Say</h2>
-                    <p class="text-sm text-slate-400 mt-2">Verify your phone number to share and comment safely and anonymously.</p>
+                    <p class="text-sm text-slate-400 mt-2">Verify your identity to share and comment safely and anonymously.</p>
+                </div>
+
+                <!-- Tab switcher for Telegram Bot vs Email Address -->
+                <div class="flex border-b border-slate-800 mb-6">
+                    <button type="button" id="tab-telegram" onclick="switchAuthTab('telegram')" class="flex-1 pb-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 transition-all duration-200 outline-none">
+                        Telegram Bot
+                    </button>
+                    <button type="button" id="tab-email" onclick="switchAuthTab('email')" class="flex-1 pb-3 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all duration-200 outline-none">
+                        Email Address
+                    </button>
                 </div>
 
                 <!-- Step 1: Request OTP Form -->
                 <form id="otp-request-form" onsubmit="handleRequestOTP(event)" class="space-y-5">
-                    <div>
-                        <label for="phone" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Phone Number or Telegram Chat ID</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
-                                <i data-lucide="phone" class="h-5 w-5"></i>
-                            </span>
-                            <input type="tel" id="phone" required placeholder="e.g. +15550000000 or 123456789" pattern="^\+?[0-9\s\-()]{5,25}$" title="Please enter a valid phone number or Telegram Chat ID with at least 5 digits." class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
+                    <!-- Telegram/Phone Input Section -->
+                    <div id="phone-input-container" class="space-y-4">
+                        <div>
+                            <label for="phone" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Phone Number or Telegram Chat ID</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                                    <i data-lucide="phone" class="h-5 w-5"></i>
+                                </span>
+                                <input type="tel" id="phone" required placeholder="e.g. +15550000000" pattern="^\+?[0-9\s\-()]{5,25}$" title="Please enter a valid phone number or Telegram Chat ID with at least 5 digits." class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-2 leading-relaxed">We deliver OTPs via Telegram Bot to reduce operational costs. If your account isn't linked yet, we'll guide you to Telegram first.</p>
                         </div>
-                        <p class="text-[10px] text-slate-400 mt-2 leading-relaxed">We deliver OTPs via Telegram Bot to reduce operational costs. Enter your registered phone number or Telegram Chat ID to verify.</p>
+                    </div>
+
+                    <!-- Email Input Section (hidden initially) -->
+                    <div id="email-input-container" class="hidden space-y-4">
+                        <div>
+                            <label for="email" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Email Address</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                                    <i data-lucide="mail" class="h-5 w-5"></i>
+                                </span>
+                                <input type="email" id="email" placeholder="e.g. you@example.com" class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-2 leading-relaxed">Enter your email address to receive your 6-digit OTP code securely.</p>
+                        </div>
                     </div>
 
                     <button type="submit" id="request-otp-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white py-3 px-4 rounded-xl font-semibold shadow-lg shadow-indigo-600/15 hover:shadow-indigo-600/25 transition-all duration-200 flex items-center justify-center space-x-2">
@@ -144,7 +171,7 @@
                     <div class="flex items-center justify-between">
                         <button type="button" onclick="showRequestOTPForm()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition flex items-center space-x-1">
                             <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
-                            <span>Change phone number</span>
+                            <span id="change-identifier-text">Change phone number</span>
                         </button>
                     </div>
 
@@ -535,6 +562,46 @@
         }
 
         // --- AUTH SERVICES ---
+        let activeAuthTab = 'telegram';
+
+        function switchAuthTab(tab) {
+            activeAuthTab = tab;
+            const tabTelegram = document.getElementById('tab-telegram');
+            const tabEmail = document.getElementById('tab-email');
+            const phoneContainer = document.getElementById('phone-input-container');
+            const emailContainer = document.getElementById('email-input-container');
+            const phoneInput = document.getElementById('phone');
+            const emailInput = document.getElementById('email');
+            const requestBtn = document.getElementById('request-otp-btn');
+
+            if (tab === 'telegram') {
+                tabTelegram.classList.add('border-indigo-500', 'text-indigo-400');
+                tabTelegram.classList.remove('border-transparent', 'text-slate-400');
+                tabEmail.classList.add('border-transparent', 'text-slate-400');
+                tabEmail.classList.remove('border-indigo-500', 'text-indigo-400');
+
+                phoneContainer.classList.remove('hidden');
+                emailContainer.classList.add('hidden');
+                phoneInput.required = true;
+                emailInput.required = false;
+
+                requestBtn.innerHTML = `<span>Verify via Telegram</span><i data-lucide="send" class="h-5 w-5"></i>`;
+            } else {
+                tabEmail.classList.add('border-indigo-500', 'text-indigo-400');
+                tabEmail.classList.remove('border-transparent', 'text-slate-400');
+                tabTelegram.classList.add('border-transparent', 'text-slate-400');
+                tabTelegram.classList.remove('border-indigo-500', 'text-indigo-400');
+
+                emailContainer.classList.remove('hidden');
+                phoneContainer.classList.add('hidden');
+                emailInput.required = true;
+                phoneInput.required = false;
+
+                requestBtn.innerHTML = `<span>Verify via Email</span><i data-lucide="send" class="h-5 w-5"></i>`;
+            }
+            lucide.createIcons();
+        }
+
         async function checkAuth() {
             try {
                 const res = await fetch('/api/auth/me');
@@ -568,19 +635,63 @@
             document.getElementById('otp-request-form').classList.remove('hidden');
             document.getElementById('otp-verify-form').classList.add('hidden');
             document.getElementById('mock-otp-banner').classList.add('hidden');
+            const telegramBtn = document.getElementById('telegram-link-btn');
+            if (telegramBtn) telegramBtn.remove();
         }
 
-        function showVerifyOTPForm(phone, otpCode) {
+        function showVerifyOTPForm(identifier, otpCode, telegramLink = null) {
             document.getElementById('otp-request-form').classList.add('hidden');
             document.getElementById('otp-verify-form').classList.remove('hidden');
 
-            // Pop the banner showing the Mock SMS OTP
+            // Pop the banner showing the Mock OTP
+            const mockBanner = document.getElementById('mock-otp-banner');
             document.getElementById('mock-otp-value').innerText = otpCode;
-            document.getElementById('mock-otp-banner').classList.remove('hidden');
+            mockBanner.classList.remove('hidden');
+
+            const bannerTitle = mockBanner.querySelector('h3');
+            const bannerText = mockBanner.querySelector('p');
+            if (activeAuthTab === 'telegram') {
+                bannerTitle.innerText = "Mock Telegram/SMS Dispatcher";
+                bannerText.innerHTML = `We generated code <span class="font-mono font-bold bg-amber-400 text-slate-950 px-2 py-0.5 rounded text-sm" id="mock-otp-value">${otpCode}</span> for your phone number.`;
+            } else {
+                bannerTitle.innerText = "Mock Email Dispatcher";
+                bannerText.innerHTML = `We generated code <span class="font-mono font-bold bg-amber-400 text-slate-950 px-2 py-0.5 rounded text-sm" id="mock-otp-value">${otpCode}</span> for your email address.`;
+            }
+
+            const changeText = document.getElementById('change-identifier-text');
+            if (changeText) {
+                changeText.innerText = activeAuthTab === 'telegram' ? "Change phone number" : "Change email address";
+            }
+
+            // Display Telegram deep link button if redirecting
+            const telegramBtnId = 'telegram-link-btn';
+            let telegramBtn = document.getElementById(telegramBtnId);
+            if (telegramLink) {
+                if (!telegramBtn) {
+                    telegramBtn = document.createElement('div');
+                    telegramBtn.id = telegramBtnId;
+                    telegramBtn.className = "mt-4 text-center";
+                    telegramBtn.innerHTML = `
+                        <a href="${telegramLink}" target="_blank" class="inline-flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-semibold transition-all shadow-md">
+                            <i data-lucide="send" class="h-4 w-4"></i>
+                            <span>Open Telegram Bot to Link Account</span>
+                        </a>
+                    `;
+                    document.getElementById('otp-verify-form').insertBefore(telegramBtn, document.getElementById('otp-verify-form').firstChild);
+                } else {
+                    telegramBtn.querySelector('a').href = telegramLink;
+                    telegramBtn.classList.remove('hidden');
+                }
+            } else {
+                if (telegramBtn) {
+                    telegramBtn.classList.add('hidden');
+                }
+            }
 
             // Focus verify input
             document.getElementById('code').value = '';
             document.getElementById('code').focus();
+            lucide.createIcons();
         }
 
         function copyMockOTP() {
@@ -592,14 +703,26 @@
         async function handleRequestOTP(e) {
             e.preventDefault();
             const phoneInput = document.getElementById('phone');
-            const phone = phoneInput.value.trim();
+            const emailInput = document.getElementById('email');
+            const fd = new FormData();
 
-            // Clean and count digits in the phone number/ID
-            const digits = phone.replace(/\D/g, '');
-            if (digits.length < 5) {
-                alert("Please enter a valid Phone Number or Telegram Chat ID containing at least 5 digits.");
-                phoneInput.focus();
-                return;
+            if (activeAuthTab === 'telegram') {
+                const phone = phoneInput.value.trim();
+                const digits = phone.replace(/\D/g, '');
+                if (digits.length < 5) {
+                    alert("Please enter a valid Phone Number or Telegram Chat ID containing at least 5 digits.");
+                    phoneInput.focus();
+                    return;
+                }
+                fd.append('phone', phone);
+            } else {
+                const email = emailInput.value.trim();
+                if (!email) {
+                    alert("Please enter a valid email address.");
+                    emailInput.focus();
+                    return;
+                }
+                fd.append('email', email);
             }
 
             const btn = document.getElementById('request-otp-btn');
@@ -607,9 +730,6 @@
             btn.innerHTML = `<span class="animate-pulse">Requesting...</span>`;
 
             try {
-                const fd = new FormData();
-                fd.append('phone', phone);
-
                 const res = await fetch('/api/auth/otp-request', {
                     method: 'POST',
                     body: fd
@@ -617,7 +737,14 @@
                 const data = await res.json();
 
                 if (res.ok && data.success) {
-                    showVerifyOTPForm(phone, data.otp_code);
+                    if (data.status === 'redirect') {
+                        alert("Account not linked to Telegram yet. Redirecting to Telegram Bot...");
+                        window.open(data.telegram_link, '_blank');
+                        showVerifyOTPForm(data.phone || '', data.otp_code || '', data.telegram_link);
+                    } else {
+                        const identifier = activeAuthTab === 'telegram' ? data.phone : data.email;
+                        showVerifyOTPForm(identifier, data.otp_code || '');
+                    }
                 } else {
                     alert(data.detail || "Error requesting OTP code.");
                 }
@@ -626,14 +753,19 @@
                 alert("Failed to reach server. Try again.");
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = `<span>Verify via Telegram</span><i data-lucide="send" class="h-5 w-5"></i>`;
+                if (activeAuthTab === 'telegram') {
+                    btn.innerHTML = `<span>Verify via Telegram</span><i data-lucide="send" class="h-5 w-5"></i>`;
+                } else {
+                    btn.innerHTML = `<span>Verify via Email</span><i data-lucide="send" class="h-5 w-5"></i>`;
+                }
                 lucide.createIcons();
             }
         }
 
         async function handleVerifyOTP(e) {
             e.preventDefault();
-            const phone = document.getElementById('phone').value.trim();
+            const phoneInput = document.getElementById('phone');
+            const emailInput = document.getElementById('email');
             const code = document.getElementById('code').value.trim();
             const btn = document.getElementById('verify-otp-btn');
 
@@ -642,7 +774,11 @@
 
             try {
                 const fd = new FormData();
-                fd.append('phone', phone);
+                if (activeAuthTab === 'telegram') {
+                    fd.append('phone', phoneInput.value.trim());
+                } else {
+                    fd.append('email', emailInput.value.trim());
+                }
                 fd.append('code', code);
 
                 const res = await fetch('/api/auth/otp-verify', {
@@ -654,6 +790,9 @@
                 if (res.ok && data.success) {
                     currentUser = data.user;
                     document.getElementById('mock-otp-banner').classList.add('hidden');
+                    const telegramBtn = document.getElementById('telegram-link-btn');
+                    if (telegramBtn) telegramBtn.remove();
+
                     if (currentUser.has_profile) {
                         showAppScreen();
                     } else {

@@ -13,8 +13,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-
 from database import init_db, get_db, User, Topic, Comment
+from config import BOT_USERNAME, BOT_TOKEN
+from otp import generate_otp, verify_otp
 
 app = FastAPI(title="Have Your Say - One Page App")
 
@@ -25,6 +26,16 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Initialize database
 init_db()
+
+# Startup event to run the Telegram Bot polling in a background thread if token is set
+@app.on_event("startup")
+def start_telegram_bot():
+    if BOT_TOKEN:
+        import threading
+        from bot_handler import run_bot
+        bot_thread = threading.Thread(target=run_bot, daemon=True)
+        bot_thread.start()
+        print("[main] Started Telegram bot polling in a background thread.")
 
 # --- Helper to get authenticated user ---
 def get_current_user(session_token: Optional[str] = Cookie(None), db: Session = Depends(get_db)) -> Optional[User]:
@@ -39,7 +50,7 @@ def require_current_user(user: Optional[User] = Depends(get_current_user)) -> Us
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required. Please verify your phone number."
+            detail="Authentication required. Please verify your identity."
         )
     return user
 
@@ -52,86 +63,96 @@ def read_index():
 # --- Authentication Endpoints ---
 
 @app.post("/api/auth/otp-request")
-def request_otp(phone: str = Form(...), db: Session = Depends(get_db)):
-    phone = phone.strip()
-    if not phone:
-        raise HTTPException(status_code=400, detail="Phone number is required.")
+def request_otp(
+    phone: Optional[str] = Form(None),
+    email: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    if phone:
+        phone = phone.strip()
+    if email:
+        email = email.strip()
 
-    otp_code = f"{random.randint(100000, 999999)}"
-    otp_expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=10)
+    if not phone and not email:
+        raise HTTPException(status_code=400, detail="Either phone number or email address is required.")
 
-    user = db.query(User).filter(User.phone == phone).first()
-    if not user:
-        user = User(
-            phone=phone,
-            otp_code=otp_code,
-            otp_expires=otp_expires,
-            is_verified=False
-        )
-        db.add(user)
-    else:
-        user.otp_code = otp_code
-        user.otp_expires = otp_expires
-        user.is_verified = False
+    # Use otp.py functions for OTP generation
+    identifier = phone if phone else email
+    otp_code = generate_otp(identifier)
 
-    db.commit()
+    if phone:
+        user = db.query(User).filter(User.phone == phone).first()
+        # If user has not linked their Telegram Chat ID yet, return deep-link redirect
+        if not user or not user.telegram_chat_id:
+            telegram_link = f"https://t.me/{BOT_USERNAME}?start=login_{phone}"
+            return {
+                "success": True,
+                "status": "redirect",
+                "message": "Open Telegram to link your account and get OTP code.",
+                "telegram_link": telegram_link,
+                "phone": phone,
+                "otp_code": otp_code
+            }
 
-    print(f"\n[MOCK SMS] To: {phone} | Code: {otp_code}\n")
+        # If already linked, send the OTP code via Telegram Bot
+        print(f"\n[MOCK SMS] To: {phone} | Code: {otp_code}\n")
 
-    # Send via Telegram Bot if TELEGRAM_BOT_TOKEN is set
-    telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
-    if telegram_token:
-        chat_id = "".join([c for c in phone if c.isdigit() or c == "-"])
-        if chat_id:
+        if BOT_TOKEN and user.telegram_chat_id:
             try:
-                import urllib.request
-                import urllib.parse
-                import json
-
-                message = f"Your Have Your Say OTP code is: {otp_code}"
-                url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
-                data = urllib.parse.urlencode({
-                    "chat_id": chat_id,
-                    "text": message
-                }).encode("utf-8")
-
-                req = urllib.request.Request(url, data=data, method="POST")
-                with urllib.request.urlopen(req, timeout=5) as response:
-                    res_body = response.read().decode("utf-8")
-                    print(f"[Telegram Bot] Sent to Chat ID {chat_id}. Response: {res_body}")
+                from telegram_bot import send_otp
+                send_otp(user.telegram_chat_id, otp_code)
+                print(f"[Telegram Bot] Sent directly to Chat ID {user.telegram_chat_id}.")
             except Exception as e:
                 print(f"[Telegram Bot Error] Failed to send message: {e}")
 
-    return {
-        "success": True,
-        "message": "OTP sent successfully (mocked).",
-        "phone": phone,
-        "otp_code": otp_code
-    }
+        return {
+            "success": True,
+            "message": "OTP sent successfully via Telegram bot.",
+            "phone": phone,
+            "otp_code": otp_code
+        }
+
+    else:
+        # Email flow
+        print(f"\n[MOCK EMAIL] To: {email} | Code: {otp_code}\n")
+
+        return {
+            "success": True,
+            "message": "OTP sent successfully (mocked email).",
+            "email": email,
+            "otp_code": otp_code
+        }
 
 @app.post("/api/auth/otp-verify")
-def verify_otp(
+def verify_otp_endpoint(
     response: Response,
-    phone: str = Form(...),
+    phone: Optional[str] = Form(None),
+    email: Optional[str] = Form(None),
     code: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    phone = phone.strip()
+    if phone:
+        phone = phone.strip()
+    if email:
+        email = email.strip()
+
+    if not phone and not email:
+        raise HTTPException(status_code=400, detail="Either phone number or email address is required for verification.")
+
     code = code.strip()
 
-    user = db.query(User).filter(User.phone == phone).first()
+    # Use otp.py functions for OTP validation
+    identifier = phone if phone else email
+    if not verify_otp(identifier, code):
+        raise HTTPException(status_code=400, detail="Invalid OTP code or it has expired.")
+
+    if phone:
+        user = db.query(User).filter(User.phone == phone).first()
+    else:
+        user = db.query(User).filter(User.email == email).first()
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found. Request OTP first.")
-
-    if not user.otp_expires:
-        raise HTTPException(status_code=400, detail="No OTP requested.")
-
-    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
-    if now_naive > user.otp_expires:
-        raise HTTPException(status_code=400, detail="OTP has expired.")
-
-    if user.otp_code != code:
-        raise HTTPException(status_code=400, detail="Invalid OTP code.")
 
     # Generate a random alias and username on every login
     adjectives = ["Silent", "Quiet", "Hidden", "Shadow", "Deep", "Bold", "Free", "Wild", "Bright", "Epic", "Magic", "Crypto", "Nova", "Cosmic", "Mystic"]
@@ -162,6 +183,7 @@ def verify_otp(
         "user": {
             "id": user.id,
             "phone": user.phone,
+            "email": user.email,
             "username": user.username,
             "alias": user.alias,
             "belief": user.belief,
@@ -196,6 +218,7 @@ def update_profile(
         "user": {
             "id": user.id,
             "phone": user.phone,
+            "email": user.email,
             "username": user.username,
             "alias": user.alias,
             "belief": user.belief,
@@ -212,6 +235,7 @@ def get_me(user: Optional[User] = Depends(get_current_user)):
         "user": {
             "id": user.id,
             "phone": user.phone,
+            "email": user.email,
             "username": user.username,
             "alias": user.alias,
             "belief": user.belief,
@@ -328,7 +352,7 @@ def get_topics(db: Session = Depends(get_db)):
                     "location": r.location,
                     "created_at": r.created_at.isoformat(),
                     "author": {
-                    "id": r.author.id,
+                        "id": r.author.id,
                         "username": r.author.username or "Anonymous",
                         "belief": r.author.belief or ""
                     }
