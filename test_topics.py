@@ -332,3 +332,41 @@ def test_create_topic_with_video_processing():
     assert meta_data["success"] is True
     assert meta_data["video"]["id"] == video_id
     assert meta_data["video"]["title"] == "my_holiday.mp4"
+
+def test_trim_selected_video_frame_processing():
+    from video_processor import trim_selected_video_frame, VIDEO_ORIGINAL_DIR, VIDEO_SEGMENT_DIR, VIDEO_THUMBNAIL_DIR
+    import shutil
+
+    video_id = 9999
+    filename = "holiday_test.mp4"
+    orig_file = VIDEO_ORIGINAL_DIR / f"{video_id}_{filename}"
+
+    # Generate a real short test video to trim
+    import subprocess
+    subprocess.run([
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-i", "testsrc=duration=5:size=320x240:rate=10",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        str(orig_file)
+    ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    assert orig_file.exists()
+
+    # Call trim frame 0
+    res = trim_selected_video_frame(video_id, filename, 0)
+    assert res is not False
+    assert res["segments_count"] == 1
+    assert res["duration"] > 0.0
+
+    # Original file must be immediately deleted!
+    assert not orig_file.exists()
+
+    # The trimmed segment must exist as 9999_000.mp4
+    trimmed_segment = VIDEO_SEGMENT_DIR / f"{video_id}_000.mp4"
+    assert trimmed_segment.exists()
+
+    # Clean up generated files
+    if trimmed_segment.exists():
+        trimmed_segment.unlink()
+    for thumb in VIDEO_THUMBNAIL_DIR.glob(f"{video_id}_*.jpg"):
+        thumb.unlink()

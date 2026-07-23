@@ -397,6 +397,17 @@
                                 <img id="image-preview" src="#" alt="Upload preview" class="w-full h-40 object-cover opacity-90">
                                 <video id="video-preview-element" class="hidden w-full h-40 object-cover opacity-90" autoplay loop muted playsinline></video>
                             </div>
+
+                            <!-- Frame Selector Container -->
+                            <div id="frame-selector-container" class="hidden mt-4 bg-slate-950/60 border border-slate-850 p-4 rounded-xl space-y-3">
+                                <div class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
+                                    <span>Select a 1-Minute Segment (Frame)</span>
+                                    <span class="text-indigo-400 font-semibold lowercase tracking-tight">Only this frame is shared & others deleted</span>
+                                </div>
+                                <div id="frames-grid" class="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto pr-1">
+                                    <!-- Populated dynamically with Frame 1, Frame 2, etc. -->
+                                </div>
+                            </div>
                         </form>
                     </div>
 
@@ -520,14 +531,822 @@
     </footer>
 
     <!-- --- CLIENT-SIDE JAVASCRIPT --- -->
-    <script src="/static/js/app.js"></script>
-    <!-- --- IDENTITY SETTINGS MODAL --- -->
-    <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-fade-in">
-        <div class="bg-slate-900 border border-slate-800/80 rounded-2xl shadow-2xl p-6 w-full max-w-md relative shadow-fuchsia-500/5">
-            <!-- Close Button -->
-            <button type="button" onclick="closeSettingsModal()" class="absolute top-4 right-4 p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition">
-                <i data-lucide="x" class="h-5 w-5"></i>
-            </button>
+    <script>
+        // --- XSS Prevention Escape Helper ---
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // --- Global States ---
+        let currentUser = null;
+        let detectedLocation = "Anonymous Location";
+        let countdownIntervals = [];
+
+        // Run on Page Load
+        window.addEventListener('DOMContentLoaded', async () => {
+            lucide.createIcons();
+            await fetchUserLocation();
+            await checkAuth();
+        });
+
+        // --- GEOLOCATION ENGINE ---
+        async function fetchUserLocation() {
+            try {
+                // Fetch from a robust free geolocation service
+                const res = await fetch('https://ipapi.co/json/');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.city && data.country_name) {
+                        detectedLocation = `${data.city}, ${data.country_name}`;
+                    } else if (data && data.country_name) {
+                        detectedLocation = data.country_name;
+                    }
+                }
+            } catch (err) {
+                console.log("IP lookup failed, using offline fallback...", err);
+                try {
+                    // Try to generate timezone city
+                    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    if (tz && tz.includes('/')) {
+                        const parts = tz.split('/');
+                        const region = parts[0];
+                        const city = parts[1].replace('_', ' ');
+                        detectedLocation = `${city} Region`;
+                    }
+                } catch (fallbackErr) {
+                    detectedLocation = "Earth Orbit";
+                }
+            }
+            const locationDisplay = document.getElementById('user-location-display');
+            if (locationDisplay) {
+                locationDisplay.innerText = `Location: ${detectedLocation}`;
+            }
+        }
+
+        // --- AUTH SERVICES ---
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+
+                if (data.authenticated) {
+                    currentUser = data.user;
+                    if (currentUser.has_profile) {
+                        showAppScreen();
+                    } else {
+                        showProfileScreen();
+                    }
+                } else {
+                    showAuthScreen();
+                }
+            } catch (err) {
+                console.error("Auth check failed:", err);
+                showAuthScreen();
+            }
+        }
+
+        let activeAuthTab = 'telegram';
+
+        function switchAuthTab(tab) {
+            activeAuthTab = tab;
+            const tabTelegram = document.getElementById('tab-telegram');
+            const tabEmail = document.getElementById('tab-email');
+            const phoneContainer = document.getElementById('phone-input-container');
+            const emailContainer = document.getElementById('email-input-container');
+            const phoneInput = document.getElementById('phone');
+            const emailInput = document.getElementById('email');
+            const requestBtn = document.getElementById('request-otp-btn');
+
+            if (tab === 'telegram') {
+                tabTelegram.className = "flex-1 pb-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 transition-all duration-200 outline-none";
+                tabEmail.className = "flex-1 pb-3 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all duration-200 outline-none";
+                phoneContainer.classList.remove('hidden');
+                emailContainer.classList.add('hidden');
+                phoneInput.required = true;
+                emailInput.required = false;
+                requestBtn.innerHTML = `<span>Verify via Telegram</span><i data-lucide="send" class="h-5 w-5"></i>`;
+            } else {
+                tabTelegram.className = "flex-1 pb-3 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all duration-200 outline-none";
+                tabEmail.className = "flex-1 pb-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 transition-all duration-200 outline-none";
+                phoneContainer.classList.add('hidden');
+                emailContainer.classList.remove('hidden');
+                phoneInput.required = false;
+                emailInput.required = true;
+                requestBtn.innerHTML = `<span>Verify via Email</span><i data-lucide="send" class="h-5 w-5"></i>`;
+            }
+            lucide.createIcons();
+        }
+
+        function showAuthScreen() {
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('profile-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.add('hidden');
+            document.getElementById('header-user-controls').classList.add('hidden');
+            showRequestOTPForm();
+        }
+
+        function showRequestOTPForm() {
+            document.getElementById('otp-request-form').classList.remove('hidden');
+            document.getElementById('otp-verify-form').classList.add('hidden');
+            document.getElementById('mock-otp-banner').classList.add('hidden');
+        }
+
+        function showVerifyOTPForm(identifier, otpCode, channel) {
+            document.getElementById('otp-request-form').classList.add('hidden');
+            document.getElementById('otp-verify-form').classList.remove('hidden');
+
+            const promptText = document.getElementById('otp-sent-prompt-text');
+            if (channel === 'telegram') {
+                if (promptText) {
+                    promptText.innerText = `An OTP code has been sent to your Telegram associated identifier ${identifier}. Please check your Telegram bot to retrieve it.`;
+                }
+                // Show standard mock banner if available
+                if (otpCode) {
+                    document.getElementById('mock-otp-value').innerText = otpCode;
+                    document.getElementById('mock-otp-banner').classList.remove('hidden');
+                } else {
+                    document.getElementById('mock-otp-banner').classList.add('hidden');
+                }
+                document.getElementById('change-identifier-text').innerText = "Change phone number";
+            } else {
+                if (promptText) {
+                    promptText.innerText = `An OTP code has been sent to ${identifier}. Please check your email inbox to retrieve it.`;
+                }
+                // Securely hide mock banner for email tab as requested!
+                document.getElementById('mock-otp-banner').classList.add('hidden');
+                document.getElementById('change-identifier-text').innerText = "Change email address";
+            }
+
+            // Focus verify input
+            document.getElementById('code').value = '';
+            document.getElementById('code').focus();
+        }
+
+        function copyMockOTP() {
+            const code = document.getElementById('mock-otp-value').innerText;
+            navigator.clipboard.writeText(code);
+            alert("Code copied to clipboard: " + code);
+        }
+
+        async function handleRequestOTP(e) {
+            e.preventDefault();
+
+            // 1. Enforce Terms and Conditions Acceptance before OTP Dispatch!
+            const acceptCheckbox = document.getElementById('accept-terms');
+            if (!acceptCheckbox || !acceptCheckbox.checked) {
+                alert("You must accept the Terms and Conditions before requesting an OTP code.");
+                return;
+            }
+
+            const fd = new FormData();
+            let identifier = "";
+
+            if (activeAuthTab === 'telegram') {
+                const phoneInput = document.getElementById('phone');
+                const phone = phoneInput.value.trim();
+
+                // Clean and count digits in the phone number/ID
+                const digits = phone.replace(/\D/g, '');
+                if (digits.length < 5) {
+                    alert("Please enter a valid Phone Number or Telegram Chat ID containing at least 5 digits.");
+                    phoneInput.focus();
+                    return;
+                }
+                fd.append('phone', phone);
+                identifier = phone;
+            } else {
+                const emailInput = document.getElementById('email');
+                const email = emailInput.value.trim();
+                if (!email) {
+                    alert("Please enter a valid email address.");
+                    emailInput.focus();
+                    return;
+                }
+                fd.append('email', email);
+                identifier = email;
+            }
+
+            const btn = document.getElementById('request-otp-btn');
+            btn.disabled = true;
+            btn.innerHTML = `<span class="animate-pulse">Requesting...</span>`;
+
+            try {
+                const res = await fetch('/api/auth/otp-request', {
+                    method: 'POST',
+                    body: fd
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    if (data.status === 'redirect') {
+                        // Redirect prompt for non-linked Telegram accounts
+                        alert("Account not linked yet. Redirecting you to Telegram Bot to complete the handshake.");
+                        window.open(data.telegram_link, "_blank");
+                    } else {
+                        showVerifyOTPForm(identifier, data.otp_code, activeAuthTab);
+                    }
+                } else {
+                    alert(data.detail || "Error requesting OTP code.");
+                }
+            } catch (err) {
+                console.error("OTP Request Error:", err);
+                alert("Failed to reach server. Try again.");
+            } finally {
+                btn.disabled = false;
+                if (activeAuthTab === 'telegram') {
+                    btn.innerHTML = `<span>Verify via Telegram</span><i data-lucide="send" class="h-5 w-5"></i>`;
+                } else {
+                    btn.innerHTML = `<span>Verify via Email</span><i data-lucide="send" class="h-5 w-5"></i>`;
+                }
+                lucide.createIcons();
+            }
+        }
+
+        async function handleVerifyOTP(e) {
+            e.preventDefault();
+            const code = document.getElementById('code').value.trim();
+            const btn = document.getElementById('verify-otp-btn');
+
+            btn.disabled = true;
+            btn.innerHTML = `<span class="animate-pulse">Verifying...</span>`;
+
+            const fd = new FormData();
+            fd.append('code', code);
+
+            if (activeAuthTab === 'telegram') {
+                const phone = document.getElementById('phone').value.trim();
+                fd.append('phone', phone);
+            } else {
+                const email = document.getElementById('email').value.trim();
+                fd.append('email', email);
+            }
+
+            try {
+                const res = await fetch('/api/auth/otp-verify', {
+                    method: 'POST',
+                    body: fd
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    currentUser = data.user;
+                    document.getElementById('mock-otp-banner').classList.add('hidden');
+                    if (currentUser.has_profile) {
+                        showAppScreen();
+                    } else {
+                        showProfileScreen();
+                    }
+                } else {
+                    alert(data.detail || "Invalid code. Please try again.");
+                }
+            } catch (err) {
+                console.error("OTP Verify Error:", err);
+                alert("Authentication failed.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<span>Verify and Continue</span><i data-lucide="check" class="h-5 w-5"></i>`;
+                lucide.createIcons();
+            }
+        }
+
+        function showProfileScreen() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('profile-screen').classList.remove('hidden');
+            document.getElementById('app-screen').classList.add('hidden');
+            document.getElementById('header-user-controls').classList.add('hidden');
+
+            document.getElementById('username').value = currentUser.username || '';
+            document.getElementById('belief').value = currentUser.belief || '';
+
+            // Automatically set detected country display
+            const countryEl = document.getElementById('detected-country-display');
+            if (countryEl) {
+                countryEl.innerText = detectedLocation || "Earth Orbit";
+            }
+        }
+
+        async function handleUpdateProfile(sidebar = false, e) {
+            if (e) e.preventDefault();
+
+            let userVal, beliefVal;
+            if (sidebar) {
+                userVal = document.getElementById('sidebar-username').value.trim();
+                beliefVal = document.getElementById('sidebar-belief').value.trim();
+            } else {
+                userVal = document.getElementById('username').value.trim();
+                beliefVal = document.getElementById('belief').value.trim();
+            }
+
+            try {
+                const fd = new FormData();
+                fd.append('username', userVal);
+                fd.append('belief', beliefVal);
+
+                const res = await fetch('/api/auth/profile', {
+                    method: 'POST',
+                    body: fd
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    currentUser = data.user;
+                    alert("Identity details updated successfully!");
+                    showAppScreen();
+                } else {
+                    alert(data.detail || "Failed to update profile.");
+                }
+            } catch (err) {
+                console.error("Profile update error:", err);
+                alert("Error connecting to server.");
+            }
+        }
+
+        function showAppScreen() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('profile-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+
+            // Header configuration
+            document.getElementById('header-user-controls').classList.remove('hidden');
+            document.getElementById('header-username').innerText = `@${currentUser.username} (You: ${currentUser.alias || ''})`;
+            document.getElementById('header-username').title = `Belief: ${currentUser.belief || 'None'}`;
+
+            const initial = currentUser.username ? currentUser.username[0].toUpperCase() : 'U';
+            document.getElementById('user-avatar-initial').innerText = initial;
+
+            // Update sidebar settings form fields
+            document.getElementById('sidebar-username').value = currentUser.username;
+            document.getElementById('sidebar-belief').value = currentUser.belief;
+
+            fetchFeed();
+            fetchTrending();
+        }
+
+        async function logout() {
+            if (!confirm("Are you sure you want to log out?")) return;
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                currentUser = null;
+                showAuthScreen();
+            } catch (err) {
+                console.error("Logout failed:", err);
+            }
+        }
+
+
+        // --- FEED & TOPIC ENGAGEMENT ---
+
+        // Loader display for GIF conversion
+        function showGifProcessingFrame(show) {
+            const overlay = document.getElementById('video-to-gif-overlay');
+            if (overlay) {
+                if (show) {
+                    overlay.classList.remove('hidden');
+                } else {
+                    overlay.classList.add('hidden');
+                }
+            }
+        }
+
+        // Globals for video trimming (WhatsApp Style)
+        let currentVideoFile = null;
+        let currentVideoDuration = 0;
+
+        // Handles both images and videos
+        let selectedFrameIndex = 0;
+
+        function handleMediaSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const previewContainer = document.getElementById('image-preview-container');
+            const previewImg = document.getElementById('image-preview');
+            const videoPreview = document.getElementById('video-preview-element');
+            const clearBtn = document.getElementById('remove-preview-btn');
+            const frameSelectorContainer = document.getElementById('frame-selector-container');
+            const framesGrid = document.getElementById('frames-grid');
+
+            window.convertedGifFile = null;
+            selectedFrameIndex = 0;
+
+            if (file.type.startsWith('video/')) {
+                // Video selected: show inline video preview, hide image preview
+                if (previewImg) previewImg.classList.add('hidden');
+                if (videoPreview) {
+                    const videoURL = URL.createObjectURL(file);
+                    videoPreview.src = videoURL;
+                    videoPreview.classList.remove('hidden');
+
+                    // Create dummy element to read duration and build frames grid
+                    const tempVid = document.createElement('video');
+                    tempVid.src = videoURL;
+                    tempVid.onloadedmetadata = () => {
+                        const duration = tempVid.duration;
+                        const numFrames = Math.ceil(duration / 60);
+                        if (framesGrid) {
+                            framesGrid.innerHTML = '';
+                            for (let i = 0; i < numFrames; i++) {
+                                const startMin = i;
+                                const endMin = Math.min((i + 1), duration / 60);
+                                const frameBtn = document.createElement('button');
+                                frameBtn.type = "button";
+                                frameBtn.id = `frame-btn-${i}`;
+                                frameBtn.className = `p-3 rounded-xl border text-left flex flex-col justify-between transition-all duration-150 ${i === 0 ? 'bg-indigo-600/10 border-indigo-500 text-indigo-300 font-bold shadow' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'}`;
+                                frameBtn.onclick = () => {
+                                    // Highlight selected frame
+                                    for (let j = 0; j < numFrames; j++) {
+                                        const otherBtn = document.getElementById(`frame-btn-${j}`);
+                                        if (otherBtn) {
+                                            otherBtn.className = "p-3 rounded-xl border text-left flex flex-col justify-between transition-all duration-150 bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200";
+                                        }
+                                    }
+                                    frameBtn.className = "p-3 rounded-xl border text-left flex flex-col justify-between transition-all duration-150 bg-indigo-600/10 border-indigo-500 text-indigo-300 font-bold shadow";
+                                    selectedFrameIndex = i;
+                                    // Seek player preview to show the beginning of selected frame
+                                    videoPreview.currentTime = i * 60;
+                                };
+
+                                frameBtn.innerHTML = `
+                                    <span class="text-xs">Frame ${i + 1}</span>
+                                    <span class="text-[10px] font-mono text-slate-500 mt-1">${startMin}:00 - ${Math.floor(endMin)}:${String(Math.round((endMin % 1) * 60)).padStart(2, '0')}</span>
+                                `;
+                                framesGrid.appendChild(frameBtn);
+                            }
+                        }
+                        if (frameSelectorContainer) frameSelectorContainer.classList.remove('hidden');
+                    };
+                }
+                if (previewContainer) previewContainer.classList.remove('hidden');
+                if (clearBtn) clearBtn.classList.remove('hidden');
+            } else if (file.type.startsWith('image/')) {
+                // Image selected: show inline image preview, hide video preview and frame selector
+                if (frameSelectorContainer) frameSelectorContainer.classList.add('hidden');
+                if (videoPreview) {
+                    videoPreview.classList.add('hidden');
+                    videoPreview.src = "";
+                }
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (previewImg) {
+                        previewImg.src = e.target.result;
+                        previewImg.classList.remove('hidden');
+                    }
+                    if (previewContainer) previewContainer.classList.remove('hidden');
+                    if (clearBtn) clearBtn.classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function dataURLtoFile(dataurl, filename) {
+            try {
+                const arr = dataurl.split(',');
+                const mime = arr[0].match(/:(.*?);/)[1];
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                return new File([u8arr], filename, { type: mime });
+            } catch (err) {
+                console.error("Failed to convert dataURL to file:", err);
+                return null;
+            }
+        }
+
+        function togglePlayPause() {
+            const videoPreview = document.getElementById('cutter-preview-video');
+            if (videoPreview) {
+                if (videoPreview.paused) {
+                    videoPreview.play();
+                    updatePlayPauseButtonState(false);
+                } else {
+                    videoPreview.pause();
+                    updatePlayPauseButtonState(true);
+                }
+            }
+        }
+
+        function updatePlayPauseButtonState(isPaused) {
+            const btn = document.getElementById('video-play-pause-btn');
+            if (btn) {
+                btn.innerHTML = isPaused
+                    ? `<i data-lucide="play" class="h-4 w-4" id="play-pause-icon"></i>`
+                    : `<i data-lucide="pause" class="h-4 w-4" id="play-pause-icon"></i>`;
+                lucide.createIcons();
+            }
+        }
+
+        function onVideoScrub(val) {
+            const videoPreview = document.getElementById('cutter-preview-video');
+            if (videoPreview) {
+                videoPreview.pause();
+                updatePlayPauseButtonState(true);
+                videoPreview.currentTime = parseFloat(val);
+            }
+        }
+
+        async function generateTimelineThumbnails(file) {
+            const container = document.getElementById('timeline-thumbnails-container');
+            container.innerHTML = '<div class="text-[10px] text-slate-400 py-3 text-center w-full animate-pulse">Generating WhatsApp timeline...</div>';
+
+            try {
+                const tempVideo = document.createElement('video');
+                tempVideo.src = URL.createObjectURL(file);
+                tempVideo.muted = true;
+                tempVideo.playsInline = true;
+
+                await new Promise(resolve => {
+                    tempVideo.onloadedmetadata = () => resolve();
+                });
+
+                const duration = tempVideo.duration;
+                const numThumbnails = 5;
+                const timestamps = [];
+                for (let i = 0; i < numThumbnails; i++) {
+                    timestamps.push((duration / (numThumbnails - 1)) * i);
+                }
+
+                container.innerHTML = ''; // clear loading
+
+                for (let t of timestamps) {
+                    tempVideo.currentTime = t;
+                    await new Promise(resolve => {
+                        tempVideo.onseeked = () => resolve();
+                    });
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 120;
+                    canvas.height = 90;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+
+                    const img = document.createElement('img');
+                    img.src = canvas.toDataURL('image/jpeg', 0.6);
+                    img.className = "w-1/5 h-10 object-cover border border-slate-800 rounded shadow-md cursor-pointer hover:border-indigo-500 transition duration-150";
+                    img.title = "Seek to " + t.toFixed(1) + "s";
+                    img.onclick = () => {
+                        const videoPreview = document.getElementById('cutter-preview-video');
+                        if (videoPreview) {
+                            videoPreview.pause();
+                            updatePlayPauseButtonState(true);
+                            videoPreview.currentTime = t;
+                        }
+                    };
+                    container.appendChild(img);
+                }
+
+                URL.revokeObjectURL(tempVideo.src);
+            } catch (err) {
+                console.error("Timeline strip extraction failed:", err);
+                container.innerHTML = '<div class="text-[10px] text-red-400 py-2 text-center w-full animate-fade-in">Timeline strip preview</div>';
+            }
+        }
+
+        function onTrimSliderChange() {
+            let start = parseFloat(document.getElementById('trim-start').value) || 0;
+            let end = parseFloat(document.getElementById('trim-end').value) || 0;
+
+            // Constrain start and end times
+            if (start < 0) start = 0;
+            if (start > currentVideoDuration) start = currentVideoDuration;
+            if (end < start) end = start;
+            if (end > currentVideoDuration) end = currentVideoDuration;
+
+            // Enforce max duration of 1 minute (60 seconds)
+            const maxDuration = 60;
+            if (end - start > maxDuration) {
+                end = start + maxDuration;
+                document.getElementById('trim-end').value = end.toFixed(1);
+            }
+
+            const duration = end - start;
+            document.getElementById('trim-duration-label').innerText = `${duration.toFixed(1)}s`;
+
+            // Sync preview video currentTime to the start offset
+            const videoPreview = document.getElementById('cutter-preview-video');
+            if (videoPreview) {
+                videoPreview.currentTime = start;
+                const scrubber = document.getElementById('video-scrubber');
+                if (scrubber) {
+                    scrubber.value = start;
+                }
+            }
+        }
+
+        function cancelVideoTrim() {
+            // Hide cutter frame and clear input
+            document.getElementById('video-cutter-frame').classList.add('hidden');
+            const videoPreview = document.getElementById('cutter-preview-video');
+            if (videoPreview) {
+                videoPreview.src = "";
+            }
+            clearImagePreview();
+        }
+
+        function extractVideoFrame() {
+            const videoPreview = document.getElementById('cutter-preview-video');
+            if (!videoPreview || !currentVideoFile) return;
+
+            // Hide Cutter Frame and Show processing screen overlay
+            document.getElementById('video-cutter-frame').classList.add('hidden');
+            showGifProcessingFrame(true);
+
+            let start = videoPreview.currentTime || 0;
+            let totalDuration = videoPreview.duration || 10;
+            let clipDuration = 1.5; // Short, lightweight clip to capture a "feel" of the video as an animated GIF
+            if (start + clipDuration > totalDuration) {
+                start = Math.max(0, totalDuration - clipDuration);
+            }
+
+            const blobURL = URL.createObjectURL(currentVideoFile);
+
+            // Create highly optimized animated GIF for lightning fast conversion and tiny upload size
+            gifshot.createGIF({
+                video: [blobURL],
+                offset: start,
+                videoDuration: clipDuration,
+                numFrames: 10, // Fewer frames for extremely rapid processing
+                interval: clipDuration / 10,
+                gifWidth: 320, // Reduced resolution for quick upload and rendering
+                gifHeight: 240,
+                sampleInterval: 10, // Optimized pixel sampling factor for speedy color palette building
+                numWorkers: 2, // Stable multi-threaded frame processing
+                keepCameraOn: false
+            }, function (obj) {
+                showGifProcessingFrame(false);
+                URL.revokeObjectURL(blobURL);
+
+                if (obj.error) {
+                    alert("Error converting frame to GIF: " + obj.errorMsg);
+                    return;
+                }
+
+                const previewContainer = document.getElementById('image-preview-container');
+                const previewImg = document.getElementById('image-preview');
+                const clearBtn = document.getElementById('remove-preview-btn');
+
+                const base64Data = obj.image;
+                previewImg.src = base64Data;
+                previewContainer.classList.remove('hidden');
+                clearBtn.classList.remove('hidden');
+
+                // Synchronously and instantly convert the base64 data to File to eliminate any race conditions!
+                window.convertedGifFile = dataURLtoFile(base64Data, "extracted-frame.gif");
+            });
+        }
+
+        function confirmVideoTrim() {
+            if (!currentVideoFile) return;
+
+            let start = parseFloat(document.getElementById('trim-start').value) || 0;
+            let end = parseFloat(document.getElementById('trim-end').value) || 0;
+            let duration = end - start;
+
+            if (duration <= 0) {
+                alert("Please select a valid clip duration.");
+                return;
+            }
+
+            // Hide Cutter Frame and Show processing screen overlay
+            document.getElementById('video-cutter-frame').classList.add('hidden');
+            showGifProcessingFrame(true);
+
+            const blobURL = URL.createObjectURL(currentVideoFile);
+
+            // Ultra-optimized parameters for lightning fast GIF conversion and tiny upload size
+            gifshot.createGIF({
+                video: [blobURL],
+                offset: start,
+                videoDuration: duration,
+                numFrames: 15, // 15 frames is extremely lightweight and fast
+                interval: duration / 15,
+                gifWidth: 320, // Reduced resolution for fast upload and speedy conversion
+                gifHeight: 240,
+                sampleInterval: 10, // Optimized pixel sampling factor for rapid color palette building
+                numWorkers: 2, // Stable multi-threaded frame processing
+                keepCameraOn: false
+            }, function (obj) {
+                showGifProcessingFrame(false);
+                URL.revokeObjectURL(blobURL);
+
+                if (obj.error) {
+                    alert("Error converting video to GIF: " + obj.errorMsg);
+                    return;
+                }
+
+                const previewContainer = document.getElementById('image-preview-container');
+                const previewImg = document.getElementById('image-preview');
+                const clearBtn = document.getElementById('remove-preview-btn');
+
+                const base64Data = obj.image;
+                previewImg.src = base64Data;
+                previewContainer.classList.remove('hidden');
+                clearBtn.classList.remove('hidden');
+
+                // Synchronously and instantly convert the base64 data to File to eliminate any race conditions!
+                window.convertedGifFile = dataURLtoFile(base64Data, "converted.gif");
+            });
+        }
+
+        function clearImagePreview() {
+            const input = document.getElementById('topic-image');
+            input.value = "";
+            window.convertedGifFile = null;
+            selectedFrameIndex = 0;
+            document.getElementById('image-preview').classList.add('hidden');
+            const videoPreview = document.getElementById('video-preview-element');
+            if (videoPreview) {
+                videoPreview.classList.add('hidden');
+                videoPreview.src = "";
+            }
+            const frameSelectorContainer = document.getElementById('frame-selector-container');
+            if (frameSelectorContainer) {
+                frameSelectorContainer.classList.add('hidden');
+            }
+            const framesGrid = document.getElementById('frames-grid');
+            if (framesGrid) {
+                framesGrid.innerHTML = '';
+            }
+            document.getElementById('image-preview-container').classList.add('hidden');
+            document.getElementById('remove-preview-btn').classList.add('hidden');
+        }
+
+        async function handleCreateTopic(e) {
+            e.preventDefault();
+            const text = document.getElementById('topic-text').value.trim();
+            const imageFile = window.convertedGifFile || document.getElementById('topic-image').files[0];
+            const allowDownload = document.getElementById('topic-allow-download').checked;
+            const btn = document.getElementById('submit-topic-btn');
+
+            if (!text) return;
+
+            btn.disabled = true;
+            btn.innerHTML = `<span class="animate-pulse">Publishing...</span>`;
+
+            try {
+                const fd = new FormData();
+                fd.append('text', text);
+                fd.append('location', detectedLocation);
+                fd.append('allow_download', allowDownload);
+                if (imageFile) {
+                    fd.append('image', imageFile);
+                    if (imageFile.type.startsWith('video/')) {
+                        fd.append('selected_frame_index', selectedFrameIndex);
+                    }
+                }
+
+                const res = await fetch('/api/topics', {
+                    method: 'POST',
+                    body: fd
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    document.getElementById('topic-text').value = '';
+                    clearImagePreview();
+                    fetchFeed();
+                    fetchTrending();
+                } else {
+                    alert(data.detail || "Error publishing topic.");
+                }
+            } catch (err) {
+                console.error("Create topic error:", err);
+                alert("Failed to submit.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<span>Share Say</span><i data-lucide="send" class="h-4 w-4"></i>`;
+                lucide.createIcons();
+            }
+        }
+
+        async function fetchFeed() {
+            const icon = document.getElementById('feed-reload-icon');
+            if (icon) icon.classList.add('animate-spin');
+
+            try {
+                const res = await fetch('/api/topics');
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    window.activeTopicsList = data.topics; // Store topics globally for JSON/CSV export
+                    renderFeed(data.topics);
+                } else {
+                    console.error("Failed to load feed");
+                }
+            } catch (err) {
+                console.error("Feed fetch error:", err);
+            } finally {
+                if (icon) icon.classList.remove('animate-spin');
+            }
+        }
 
             <div class="text-center mb-6">
                 <div class="inline-flex p-3 bg-fuchsia-600/10 rounded-2xl border border-fuchsia-500/20 mb-3">
