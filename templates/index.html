@@ -255,9 +255,18 @@
                                 <span class="text-[10px] text-slate-400 font-semibold bg-indigo-950 border border-indigo-900/30 py-0.5 px-2 rounded-md">Cut Segment (Max 1 Min)</span>
                             </div>
 
-                            <!-- Live Video Preview -->
-                            <div class="flex justify-center bg-slate-900 rounded-xl overflow-hidden border border-slate-800 p-1 max-h-40">
-                                <video id="cutter-preview-video" class="h-36 w-auto object-contain rounded-lg" autoplay loop muted playsinline></video>
+                            <!-- Live Video Preview & Scrubber Controls -->
+                            <div class="flex flex-col items-center bg-slate-900 rounded-xl border border-slate-800 p-3 space-y-3">
+                                <div class="flex justify-center max-h-36">
+                                    <video id="cutter-preview-video" class="h-32 w-auto object-contain rounded-lg" autoplay loop muted playsinline></video>
+                                </div>
+                                <div class="w-full flex items-center space-x-3 text-slate-300">
+                                    <button type="button" id="video-play-pause-btn" onclick="togglePlayPause()" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition duration-150 flex items-center justify-center shadow-md">
+                                        <i data-lucide="pause" class="h-4 w-4" id="play-pause-icon"></i>
+                                    </button>
+                                    <input type="range" id="video-scrubber" min="0" step="0.1" value="0" class="flex-grow h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none" oninput="onVideoScrub(this.value)">
+                                    <span id="video-time-display" class="text-xs font-mono select-none shrink-0">0.0s / 0.0s</span>
+                                </div>
                             </div>
 
                             <!-- Timeline Frame Strip (Thumbnails generated dynamically) -->
@@ -787,6 +796,7 @@
                 // Load video preview
                 const videoURL = URL.createObjectURL(file);
                 videoPreview.src = videoURL;
+                videoPreview.load(); // Explicit load to ensure it works reliably across all browsers!
 
                 videoPreview.onloadedmetadata = () => {
                     currentVideoDuration = videoPreview.duration;
@@ -797,6 +807,30 @@
 
                     document.getElementById('trim-end').value = Math.min(60, currentVideoDuration).toFixed(1);
                     document.getElementById('trim-end').max = currentVideoDuration;
+
+                    // Set up custom scrubber limits
+                    const scrubber = document.getElementById('video-scrubber');
+                    if (scrubber) {
+                        scrubber.max = currentVideoDuration;
+                        scrubber.value = 0;
+                    }
+                    const timeDisplay = document.getElementById('video-time-display');
+                    if (timeDisplay) {
+                        timeDisplay.innerText = `0.0s / ${currentVideoDuration.toFixed(1)}s`;
+                    }
+                    updatePlayPauseButtonState(false); // starts playing by default
+
+                    // Track video time updates to synchronize the scrubber and time display
+                    videoPreview.ontimeupdate = () => {
+                        const scr = document.getElementById('video-scrubber');
+                        if (scr) {
+                            scr.value = videoPreview.currentTime;
+                        }
+                        const td = document.getElementById('video-time-display');
+                        if (td) {
+                            td.innerText = `${videoPreview.currentTime.toFixed(1)}s / ${currentVideoDuration.toFixed(1)}s`;
+                        }
+                    };
 
                     onTrimSliderChange();
                     lucide.createIcons();
@@ -815,6 +849,38 @@
                     clearBtn.classList.remove('hidden');
                 }
                 reader.readAsDataURL(file);
+            }
+        }
+
+        function togglePlayPause() {
+            const videoPreview = document.getElementById('cutter-preview-video');
+            if (videoPreview) {
+                if (videoPreview.paused) {
+                    videoPreview.play();
+                    updatePlayPauseButtonState(false);
+                } else {
+                    videoPreview.pause();
+                    updatePlayPauseButtonState(true);
+                }
+            }
+        }
+
+        function updatePlayPauseButtonState(isPaused) {
+            const btn = document.getElementById('video-play-pause-btn');
+            if (btn) {
+                btn.innerHTML = isPaused
+                    ? `<i data-lucide="play" class="h-4 w-4" id="play-pause-icon"></i>`
+                    : `<i data-lucide="pause" class="h-4 w-4" id="play-pause-icon"></i>`;
+                lucide.createIcons();
+            }
+        }
+
+        function onVideoScrub(val) {
+            const videoPreview = document.getElementById('cutter-preview-video');
+            if (videoPreview) {
+                videoPreview.pause();
+                updatePlayPauseButtonState(true);
+                videoPreview.currentTime = parseFloat(val);
             }
         }
 
@@ -855,7 +921,16 @@
 
                     const img = document.createElement('img');
                     img.src = canvas.toDataURL('image/jpeg', 0.6);
-                    img.className = "w-1/5 h-10 object-cover border border-slate-800 rounded shadow-md";
+                    img.className = "w-1/5 h-10 object-cover border border-slate-800 rounded shadow-md cursor-pointer hover:border-indigo-500 transition duration-150";
+                    img.title = "Seek to " + t.toFixed(1) + "s";
+                    img.onclick = () => {
+                        const videoPreview = document.getElementById('cutter-preview-video');
+                        if (videoPreview) {
+                            videoPreview.pause();
+                            updatePlayPauseButtonState(true);
+                            videoPreview.currentTime = t;
+                        }
+                    };
                     container.appendChild(img);
                 }
 
@@ -890,6 +965,10 @@
             const videoPreview = document.getElementById('cutter-preview-video');
             if (videoPreview) {
                 videoPreview.currentTime = start;
+                const scrubber = document.getElementById('video-scrubber');
+                if (scrubber) {
+                    scrubber.value = start;
+                }
             }
         }
 
@@ -908,12 +987,23 @@
             if (!videoPreview) return;
 
             const canvas = document.createElement('canvas');
-            canvas.width = videoPreview.videoWidth || 640;
-            canvas.height = videoPreview.videoHeight || 480;
+
+            // Limit output resolution to max 480px width for incredibly fast upload
+            const maxWidth = 480;
+            let width = videoPreview.videoWidth || 640;
+            let height = videoPreview.videoHeight || 480;
+            if (width > maxWidth) {
+                height = Math.round((maxWidth / width) * height);
+                width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
 
-            const dataURL = canvas.toDataURL('image/jpeg', 0.9);
+            // Compress to JPEG with 0.5 quality to make file size tiny and uploads lightning fast
+            const dataURL = canvas.toDataURL('image/jpeg', 0.5);
 
             const previewContainer = document.getElementById('image-preview-container');
             const previewImg = document.getElementById('image-preview');
@@ -951,14 +1041,17 @@
 
             const blobURL = URL.createObjectURL(currentVideoFile);
 
+            // Ultra-optimized parameters for lightning fast GIF conversion and tiny upload size
             gifshot.createGIF({
                 video: [blobURL],
                 offset: start,
                 videoDuration: duration,
-                numFrames: 30, // 30 frames is perfect for quick high-quality processing
-                interval: duration / 30,
-                gifWidth: 400,
-                gifHeight: 300,
+                numFrames: 15, // 15 frames is extremely lightweight and fast
+                interval: duration / 15,
+                gifWidth: 200, // Compact resolution for tiny file footprint
+                gifHeight: 150,
+                sampleInterval: 15, // Highly optimized pixel sampling factor for rapid color palette building
+                numWorkers: 4, // Multi-threaded frames processing
                 keepCameraOn: false
             }, function (obj) {
                 showGifProcessingFrame(false);
