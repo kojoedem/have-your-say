@@ -537,7 +537,7 @@
                         </h2>
 
                         <!-- Trending dynamic items -->
-                        <div id="trending-container" class="space-y-4">
+                        <div id="trending-container" class="space-y-4 max-h-64 overflow-y-auto pr-1">
                             <!-- Loaded dynamically -->
                             <div class="text-center py-6 text-xs text-slate-400">
                                 Loading trending says...
@@ -584,7 +584,7 @@
     </nav>
 
     <!-- --- MOBILE FLOATING ACTION BUTTON (FAB) --- -->
-    <button id="mobile-fab" onclick="openMobileCreateModal()" class="hidden fixed bottom-20 right-5 z-40 h-14 w-14 rounded-full bg-gradient-to-tr from-indigo-600 to-fuchsia-600 hover:from-indigo-500 hover:to-fuchsia-500 text-white shadow-lg shadow-indigo-600/30 flex items-center justify-center focus:outline-none transform active:scale-95 transition-all duration-150">
+    <button id="mobile-fab" onclick="openMobileCreateModal()" class="hidden fixed bottom-20 left-5 lg:bottom-10 lg:left-10 z-40 h-14 w-14 rounded-full bg-gradient-to-tr from-indigo-600 to-fuchsia-600 hover:from-indigo-500 hover:to-fuchsia-500 text-white shadow-lg shadow-indigo-600/30 flex items-center justify-center focus:outline-none transform active:scale-95 transition-all duration-150" title="Create a New Say">
         <i data-lucide="plus" class="h-6 w-6"></i>
     </button>
 
@@ -682,23 +682,14 @@
         // Setup common Say form placement based on viewport
         function setupFormPlacements() {
             const innerForm = document.getElementById('create-say-box-inner');
-            const desktopContainer = document.getElementById('create-say-box-desktop');
             const mobilePlaceholder = document.getElementById('mobile-form-placeholder');
 
             if (!innerForm) return;
 
-            if (window.innerWidth < 1024) {
-                // Place form inside the mobile modal container if not already there
-                if (mobilePlaceholder && !mobilePlaceholder.contains(innerForm)) {
-                    mobilePlaceholder.appendChild(innerForm);
-                    innerForm.classList.remove('hidden');
-                }
-            } else {
-                // Place form inside the desktop sidebar/mid-column if not already there
-                if (desktopContainer && !desktopContainer.contains(innerForm)) {
-                    desktopContainer.appendChild(innerForm);
-                    innerForm.classList.remove('hidden');
-                }
+            // Place form inside the mobile modal container if not already there
+            if (mobilePlaceholder && !mobilePlaceholder.contains(innerForm)) {
+                mobilePlaceholder.appendChild(innerForm);
+                innerForm.classList.remove('hidden');
             }
         }
 
@@ -1106,7 +1097,6 @@
                 // Reset to standard desktop layouts
                 if (mobileHeader) mobileHeader.classList.add('hidden');
                 if (mobileNav) mobileNav.classList.add('hidden');
-                if (mobileFab) mobileFab.classList.add('hidden');
                 if (welcomeBanner) welcomeBanner.classList.remove('hidden');
                 if (hotTakeContainer) hotTakeContainer.classList.remove('hidden');
 
@@ -1120,6 +1110,15 @@
                     }
                 }
                 document.getElementById('feed-container').classList.remove('hidden');
+            }
+
+            // Unify Mobile/Desktop FAB visibility based on auth state
+            if (mobileFab) {
+                if (currentUser) {
+                    mobileFab.classList.remove('hidden');
+                } else {
+                    mobileFab.classList.add('hidden');
+                }
             }
         }
 
@@ -1229,6 +1228,11 @@
                     tempVid.src = videoURL;
                     tempVid.onloadedmetadata = () => {
                         const duration = tempVid.duration;
+                        if (duration > 60.1) {
+                            alert("Video upload is limited to a maximum of 1 minute (60 seconds). This video has been rejected.");
+                            clearImagePreview();
+                            return;
+                        }
                         const numFrames = Math.ceil(duration / 60);
                         if (framesGrid) {
                             framesGrid.innerHTML = '';
@@ -2162,7 +2166,7 @@
                         : 'bg-slate-800 text-slate-400 border-slate-700/50';
 
                 return `
-                    <div class="bg-slate-950/40 hover:bg-slate-950 border border-slate-800 p-3 rounded-xl transition duration-150 flex items-start space-x-3 cursor-pointer" onclick="scrollToTopic(${item.id})">
+                    <div class="bg-slate-950/40 hover:bg-slate-950 border border-slate-800 p-3 rounded-xl transition duration-150 flex items-start space-x-3 cursor-pointer" onclick="scrollToTopic(${item.id})" title="${escapeHTML(item.text)}">
                         <span class="w-6 h-6 shrink-0 rounded-lg border flex items-center justify-center font-bold text-xs ${badgeColor}">
                             ${index + 1}
                         </span>
@@ -2184,16 +2188,23 @@
         }
 
         function scrollToTopic(id) {
-            let el = document.getElementById(`topic-card-${id}`);
-            if (!el) {
-                el = document.getElementById(`hot-take-card-${id}`);
+            const isMobile = window.innerWidth < 1024;
+            if (isMobile) {
+                switchMobileTab('home');
             }
-            if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // Add a brief highlight effect
-                el.classList.add('ring-2', 'ring-indigo-500');
-                setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500'), 2500);
-            }
+
+            setTimeout(() => {
+                let el = document.getElementById(`topic-card-${id}`);
+                if (!el) {
+                    el = document.getElementById(`hot-take-card-${id}`);
+                }
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Add a brief highlight effect
+                    el.classList.add('ring-2', 'ring-indigo-500');
+                    setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500'), 2500);
+                }
+            }, isMobile ? 100 : 0);
         }
 
         async function toggleTopicDownload(topicId, allow) {
