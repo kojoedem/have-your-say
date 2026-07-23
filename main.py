@@ -8,12 +8,12 @@ import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional, TYPE_CHECKING
 
-from fastapi import FastAPI, Depends, HTTPException, status, Response, Cookie, UploadFile, File, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, Depends, HTTPException, status, Response, Cookie, UploadFile, File, Form, BackgroundTasks
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from database import init_db, get_db, User, Topic, Comment
+from database import init_db, get_db, SessionLocal, User, Topic, Comment, Video
 from config import BOT_USERNAME, BOT_TOKEN
 from otp import generate_otp, verify_otp
 from email_sender import send_email_otp
@@ -27,6 +27,24 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Initialize database
 init_db()
+
+# Background task for video processing
+def background_video_processing(video_id: int, filename: str, db_session_maker):
+    from video_processor import process_video_segments_and_thumbnails
+    result = process_video_segments_and_thumbnails(video_id, filename)
+    if result:
+        db = db_session_maker()
+        try:
+            video = db.query(Video).filter(Video.id == video_id).first()
+            if video:
+                video.duration = result["duration"]
+                video.segments_count = result["segments_count"]
+                db.commit()
+                print(f"[background_video_processing] Updated video {video_id}: duration={video.duration}, segments={video.segments_count}")
+        except Exception as e:
+            print(f"[background_video_processing] Error updating video database: {e}")
+        finally:
+            db.close()
 
 # Startup event to run the Telegram Bot polling in a background thread if token is set
 @app.on_event("startup")
@@ -268,6 +286,7 @@ def logout(
 
 @app.post("/api/topics")
 def create_topic(
+    background_tasks: BackgroundTasks,
     text: str = Form(...),
     image: Optional[UploadFile] = File(None),
     location: Optional[str] = Form(None),
@@ -280,13 +299,47 @@ def create_topic(
         raise HTTPException(status_code=400, detail="Topic text cannot be empty.")
 
     image_url = None
+    is_video = False
+    video_record = None
+
     if image and image.filename:
-        ext = os.path.splitext(image.filename)[1]
-        unique_filename = f"{uuid.uuid4()}{ext}"
-        filepath = f"static/uploads/{unique_filename}"
-        with open(filepath, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-        image_url = f"/static/uploads/{unique_filename}"
+        lower_filename = image.filename.lower()
+        if (image.content_type and image.content_type.startswith("video/")) or any(lower_filename.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm", ".3gp"]):
+            is_video = True
+
+        if is_video:
+            # Create video record
+            video_record = Video(
+                user_id=user.id,
+                title=image.filename,
+                filename=image.filename,
+                duration=0.0,
+                segments_count=0
+            )
+            db.add(video_record)
+            db.commit()
+            db.refresh(video_record)
+
+            # Save raw original video file
+            from video_processor import VIDEO_ORIGINAL_DIR
+            original_path = VIDEO_ORIGINAL_DIR / f"{video_record.id}_{image.filename}"
+            with open(original_path, "wb") as buffer:
+                shutil.copyfileobj(image.file, buffer)
+
+            # Trigger background segment processing and thumbnail extraction
+            background_tasks.add_task(
+                background_video_processing,
+                video_record.id,
+                image.filename,
+                SessionLocal
+            )
+        else:
+            ext = os.path.splitext(image.filename)[1]
+            unique_filename = f"{uuid.uuid4()}{ext}"
+            filepath = f"static/uploads/{unique_filename}"
+            with open(filepath, "wb") as buffer:
+                shutil.copyfileobj(image.file, buffer)
+            image_url = f"/static/uploads/{unique_filename}"
 
     now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
     expires_at = now_naive + timedelta(hours=12)
@@ -304,6 +357,22 @@ def create_topic(
     db.commit()
     db.refresh(topic)
 
+    # Link video to topic
+    if video_record:
+        video_record.topic_id = topic.id
+        db.commit()
+        db.refresh(video_record)
+
+    video_response = None
+    if video_record:
+        video_response = {
+            "id": video_record.id,
+            "title": video_record.title,
+            "filename": video_record.filename,
+            "duration": video_record.duration,
+            "segments_count": video_record.segments_count
+        }
+
     return {
         "success": True,
         "topic": {
@@ -314,6 +383,7 @@ def create_topic(
             "allow_download": topic.allow_download,
             "created_at": topic.created_at.isoformat(),
             "expires_at": topic.expires_at.isoformat(),
+            "video": video_response,
             "author": {
                 "id": user.id,
                 "username": user.username or "Anonymous",
@@ -391,6 +461,17 @@ def get_topics(db: Session = Depends(get_db)):
                 pinned_comment = structured_comments.pop(pinned_idx)
                 structured_comments.insert(0, pinned_comment)
 
+        video_data = None
+        if t.videos:
+            v = t.videos[0]
+            video_data = {
+                "id": v.id,
+                "title": v.title,
+                "filename": v.filename,
+                "duration": v.duration,
+                "segments_count": v.segments_count
+            }
+
         topics_with_counts.append({
             "id": t.id,
             "text": t.text,
@@ -402,6 +483,7 @@ def get_topics(db: Session = Depends(get_db)):
             "time_left_seconds": time_left_sec,
             "comments_count": comm_count,
             "comments": structured_comments,
+            "video": video_data,
             "author": {
                 "id": t.author.id,
                 "username": t.author.username or "Anonymous",
@@ -578,3 +660,63 @@ def delete_comment(
     db.delete(comment)
     db.commit()
     return {"success": True, "message": "Comment deleted successfully."}
+
+# --- Video Streaming and Thumbnail Endpoints ---
+
+@app.get("/api/videos/{video_id}/segments/{segment_index}")
+def get_video_segment(video_id: int, segment_index: int, db: Session = Depends(get_db)):
+    """
+    Returns the specific 60-second segment (.mp4 chunk) for a processed video.
+    segment_index is 0-based.
+    """
+    # Verify video exists
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found.")
+
+    from video_processor import VIDEO_SEGMENT_DIR
+    filename = VIDEO_SEGMENT_DIR / f"{video_id}_{segment_index:03d}.mp4"
+    if not filename.exists():
+        raise HTTPException(status_code=404, detail=f"Segment {segment_index} not found for video {video_id}.")
+
+    return FileResponse(filename, media_type="video/mp4")
+
+@app.get("/api/videos/{video_id}/thumbnails/{time_index}")
+def get_video_thumbnail(video_id: int, time_index: int, db: Session = Depends(get_db)):
+    """
+    Returns the preview frame thumbnail image at the designated time_index (1-based).
+    """
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found.")
+
+    from video_processor import VIDEO_THUMBNAIL_DIR
+    filename = VIDEO_THUMBNAIL_DIR / f"{video_id}_{time_index:03d}.jpg"
+    if not filename.exists():
+        # Fallback to the first thumbnail if available
+        fallback = VIDEO_THUMBNAIL_DIR / f"{video_id}_001.jpg"
+        if fallback.exists():
+            return FileResponse(fallback, media_type="image/jpeg")
+        raise HTTPException(status_code=404, detail="Thumbnail not found.")
+
+    return FileResponse(filename, media_type="image/jpeg")
+
+@app.get("/api/videos/{video_id}/metadata")
+def get_video_metadata(video_id: int, db: Session = Depends(get_db)):
+    """
+    Returns metadata (duration, segments count) for the specified video.
+    """
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found.")
+
+    return {
+        "success": True,
+        "video": {
+            "id": video.id,
+            "title": video.title,
+            "duration": video.duration,
+            "segments_count": video.segments_count,
+            "created_at": video.created_at.isoformat()
+        }
+    }

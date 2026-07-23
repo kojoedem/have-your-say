@@ -122,7 +122,7 @@
 
                 <!-- Step 1: Request OTP Form -->
                 <form id="otp-request-form" onsubmit="handleRequestOTP(event)" class="space-y-5">
-                    <!-- Telegram/Phone Input Section -->
+                    <!-- Telegram/Phone Input Container -->
                     <div id="phone-input-container" class="space-y-4">
                         <div>
                             <label for="phone" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Phone Number or Telegram Chat ID</label>
@@ -130,13 +130,13 @@
                                 <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
                                     <i data-lucide="phone" class="h-5 w-5"></i>
                                 </span>
-                                <input type="tel" id="phone" required placeholder="e.g. +15550000000" pattern="^\+?[0-9\s\-()]{5,25}$" title="Please enter a valid phone number or Telegram Chat ID with at least 5 digits." class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
+                                <input type="tel" id="phone" required placeholder="e.g. +15550000000 or 123456789" pattern="^\+?[0-9\s\-()]{5,25}$" title="Please enter a valid phone number or Telegram Chat ID with at least 5 digits." class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
                             </div>
-                            <p class="text-[10px] text-slate-400 mt-2 leading-relaxed">We deliver OTPs via Telegram Bot to reduce operational costs. If your account isn't linked yet, we'll guide you to Telegram first.</p>
+                            <p class="text-[10px] text-slate-400 mt-2 leading-relaxed font-medium">We deliver OTPs via Telegram Bot to reduce operational costs. Enter your registered phone number or Telegram Chat ID to verify.</p>
                         </div>
                     </div>
 
-                    <!-- Email Input Section (hidden initially) -->
+                    <!-- Email Input Container (initially hidden) -->
                     <div id="email-input-container" class="hidden space-y-4">
                         <div>
                             <label for="email" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Email Address</label>
@@ -146,7 +146,35 @@
                                 </span>
                                 <input type="email" id="email" placeholder="e.g. you@example.com" class="block w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-500 transition duration-200 outline-none">
                             </div>
-                            <p class="text-[10px] text-slate-400 mt-2 leading-relaxed">Enter your email address to receive your 6-digit OTP code securely.</p>
+                            <p class="text-[10px] text-slate-400 mt-2 leading-relaxed font-medium">Enter your email address to receive your 6-digit OTP code securely in your inbox.</p>
+                        </div>
+                    </div>
+
+                    <!-- Terms and Conditions Acceptance -->
+                    <div class="border border-slate-800 bg-slate-950/60 rounded-xl p-4 space-y-3">
+                        <div class="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                            <span>Terms and Conditions</span>
+                            <span class="text-indigo-400">Required</span>
+                        </div>
+                        <div class="h-24 overflow-y-auto text-[10px] text-slate-400 leading-relaxed pr-1 border-b border-slate-800/40 pb-2">
+                            <p class="font-bold text-slate-300 mb-1">By accessing and using Have Your Say, you agree to the following terms:</p>
+                            <p class="font-bold mt-1.5 text-slate-200">User Responsibility</p>
+                            <p>You are fully responsible for any content, comments, opinions, or materials you post on this platform. You agree that your actions and contributions must comply with applicable laws and respect the rights and privacy of others.</p>
+                            <p class="font-bold mt-1.5 text-slate-200">Acceptable Use</p>
+                            <p>You must not use this platform to post illegal content, threats, harassment, hate speech, abuse, misinformation, or content intended to harm others.</p>
+                            <p class="font-bold mt-1.5 text-slate-200">Respect and Privacy</p>
+                            <p>Users must respect other members of the community. Sharing personal information about others without permission is prohibited.</p>
+                            <p class="font-bold mt-1.5 text-slate-200">Platform Rights</p>
+                            <p>Have Your Say reserves the right to remove content, restrict access, or suspend accounts that violate these terms or negatively affect the safety and integrity of the platform.</p>
+                            <p class="font-bold mt-1.5 text-slate-200">No Guarantee of User Content</p>
+                            <p>Opinions and statements shared by users belong to the individuals who post them and do not represent the views of Have Your Say.</p>
+                            <p class="mt-2 text-slate-300 font-semibold">By continuing to use this platform, you confirm that you understand and accept these terms and agree to use the service responsibly. Although the platform may provide anonymity to users, anonymity does not remove responsibility for unlawful or harmful actions.</p>
+                        </div>
+                        <div class="flex items-start space-x-2">
+                            <input type="checkbox" id="accept-terms" class="mt-0.5 h-4 w-4 rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                            <label for="accept-terms" class="text-[11px] text-slate-300 cursor-pointer select-none leading-normal">
+                                I accept the Terms & Conditions and understand anonymity does not excuse unlawful behavior.
+                            </label>
                         </div>
                     </div>
 
@@ -158,6 +186,12 @@
 
                 <!-- Step 2: Verify OTP Form (Hidden initially) -->
                 <form id="otp-verify-form" onsubmit="handleVerifyOTP(event)" class="hidden space-y-5">
+                    <!-- OTP Dispatch Prompt Notice -->
+                    <div id="otp-sent-prompt" class="bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs p-3.5 rounded-xl flex items-start gap-2.5 shadow-lg shadow-indigo-500/5">
+                        <i data-lucide="info" class="h-5 w-5 text-indigo-400 shrink-0 mt-0.5 animate-pulse"></i>
+                        <span id="otp-sent-prompt-text" class="leading-relaxed"></span>
+                    </div>
+
                     <div>
                         <label for="code" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Verification Code</label>
                         <div class="relative">
@@ -171,7 +205,7 @@
                     <div class="flex items-center justify-between">
                         <button type="button" onclick="showRequestOTPForm()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition flex items-center space-x-1">
                             <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
-                            <span id="change-identifier-text">Change phone number</span>
+                            <span>Change phone number</span>
                         </button>
                     </div>
 
@@ -379,6 +413,7 @@
                             <!-- Preview placeholder -->
                             <div id="image-preview-container" class="hidden mt-3 border border-slate-800 rounded-xl overflow-hidden max-w-xs relative bg-slate-950">
                                 <img id="image-preview" src="#" alt="Upload preview" class="w-full h-40 object-cover opacity-90">
+                                <video id="video-preview-element" class="hidden w-full h-40 object-cover opacity-90" autoplay loop muted playsinline></video>
                             </div>
                         </form>
                     </div>
@@ -562,46 +597,6 @@
         }
 
         // --- AUTH SERVICES ---
-        let activeAuthTab = 'telegram';
-
-        function switchAuthTab(tab) {
-            activeAuthTab = tab;
-            const tabTelegram = document.getElementById('tab-telegram');
-            const tabEmail = document.getElementById('tab-email');
-            const phoneContainer = document.getElementById('phone-input-container');
-            const emailContainer = document.getElementById('email-input-container');
-            const phoneInput = document.getElementById('phone');
-            const emailInput = document.getElementById('email');
-            const requestBtn = document.getElementById('request-otp-btn');
-
-            if (tab === 'telegram') {
-                tabTelegram.classList.add('border-indigo-500', 'text-indigo-400');
-                tabTelegram.classList.remove('border-transparent', 'text-slate-400');
-                tabEmail.classList.add('border-transparent', 'text-slate-400');
-                tabEmail.classList.remove('border-indigo-500', 'text-indigo-400');
-
-                phoneContainer.classList.remove('hidden');
-                emailContainer.classList.add('hidden');
-                phoneInput.required = true;
-                emailInput.required = false;
-
-                requestBtn.innerHTML = `<span>Verify via Telegram</span><i data-lucide="send" class="h-5 w-5"></i>`;
-            } else {
-                tabEmail.classList.add('border-indigo-500', 'text-indigo-400');
-                tabEmail.classList.remove('border-transparent', 'text-slate-400');
-                tabTelegram.classList.add('border-transparent', 'text-slate-400');
-                tabTelegram.classList.remove('border-indigo-500', 'text-indigo-400');
-
-                emailContainer.classList.remove('hidden');
-                phoneContainer.classList.add('hidden');
-                emailInput.required = true;
-                phoneInput.required = false;
-
-                requestBtn.innerHTML = `<span>Verify via Email</span><i data-lucide="send" class="h-5 w-5"></i>`;
-            }
-            lucide.createIcons();
-        }
-
         async function checkAuth() {
             try {
                 const res = await fetch('/api/auth/me');
@@ -623,6 +618,38 @@
             }
         }
 
+        let activeAuthTab = 'telegram';
+
+        function switchAuthTab(tab) {
+            activeAuthTab = tab;
+            const tabTelegram = document.getElementById('tab-telegram');
+            const tabEmail = document.getElementById('tab-email');
+            const phoneContainer = document.getElementById('phone-input-container');
+            const emailContainer = document.getElementById('email-input-container');
+            const phoneInput = document.getElementById('phone');
+            const emailInput = document.getElementById('email');
+            const requestBtn = document.getElementById('request-otp-btn');
+
+            if (tab === 'telegram') {
+                tabTelegram.className = "flex-1 pb-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 transition-all duration-200 outline-none";
+                tabEmail.className = "flex-1 pb-3 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all duration-200 outline-none";
+                phoneContainer.classList.remove('hidden');
+                emailContainer.classList.add('hidden');
+                phoneInput.required = true;
+                emailInput.required = false;
+                requestBtn.innerHTML = `<span>Verify via Telegram</span><i data-lucide="send" class="h-5 w-5"></i>`;
+            } else {
+                tabTelegram.className = "flex-1 pb-3 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all duration-200 outline-none";
+                tabEmail.className = "flex-1 pb-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 transition-all duration-200 outline-none";
+                phoneContainer.classList.add('hidden');
+                emailContainer.classList.remove('hidden');
+                phoneInput.required = false;
+                emailInput.required = true;
+                requestBtn.innerHTML = `<span>Verify via Email</span><i data-lucide="send" class="h-5 w-5"></i>`;
+            }
+            lucide.createIcons();
+        }
+
         function showAuthScreen() {
             document.getElementById('auth-screen').classList.remove('hidden');
             document.getElementById('profile-screen').classList.add('hidden');
@@ -635,62 +662,37 @@
             document.getElementById('otp-request-form').classList.remove('hidden');
             document.getElementById('otp-verify-form').classList.add('hidden');
             document.getElementById('mock-otp-banner').classList.add('hidden');
-            const telegramBtn = document.getElementById('telegram-link-btn');
-            if (telegramBtn) telegramBtn.remove();
         }
 
-        function showVerifyOTPForm(identifier, otpCode, telegramLink = null) {
+        function showVerifyOTPForm(identifier, otpCode, channel) {
             document.getElementById('otp-request-form').classList.add('hidden');
             document.getElementById('otp-verify-form').classList.remove('hidden');
 
-            // Pop the banner showing the Mock OTP ONLY for Telegram (since email mocking is completely removed as requested)
-            const mockBanner = document.getElementById('mock-otp-banner');
-            if (activeAuthTab === 'telegram') {
-                document.getElementById('mock-otp-value').innerText = otpCode;
-                mockBanner.classList.remove('hidden');
-
-                const bannerTitle = mockBanner.querySelector('h3');
-                const bannerText = mockBanner.querySelector('p');
-                bannerTitle.innerText = "Mock Telegram/SMS Dispatcher";
-                bannerText.innerHTML = `We generated code <span class="font-mono font-bold bg-amber-400 text-slate-950 px-2 py-0.5 rounded text-sm" id="mock-otp-value">${otpCode}</span> for your phone number.`;
-            } else {
-                mockBanner.classList.add('hidden');
-            }
-
-            const changeText = document.getElementById('change-identifier-text');
-            if (changeText) {
-                changeText.innerText = activeAuthTab === 'telegram' ? "Change phone number" : "Change email address";
-            }
-
-            // Display Telegram deep link button if redirecting
-            const telegramBtnId = 'telegram-link-btn';
-            let telegramBtn = document.getElementById(telegramBtnId);
-            if (telegramLink) {
-                if (!telegramBtn) {
-                    telegramBtn = document.createElement('div');
-                    telegramBtn.id = telegramBtnId;
-                    telegramBtn.className = "mt-4 text-center";
-                    telegramBtn.innerHTML = `
-                        <a href="${telegramLink}" target="_blank" class="inline-flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-semibold transition-all shadow-md">
-                            <i data-lucide="send" class="h-4 w-4"></i>
-                            <span>Open Telegram Bot to Link Account</span>
-                        </a>
-                    `;
-                    document.getElementById('otp-verify-form').insertBefore(telegramBtn, document.getElementById('otp-verify-form').firstChild);
+            const promptText = document.getElementById('otp-sent-prompt-text');
+            if (channel === 'telegram') {
+                if (promptText) {
+                    promptText.innerText = `An OTP code has been sent to your Telegram associated identifier ${identifier}. Please check your Telegram bot to retrieve it.`;
+                }
+                // Show standard mock banner if available
+                if (otpCode) {
+                    document.getElementById('mock-otp-value').innerText = otpCode;
+                    document.getElementById('mock-otp-banner').classList.remove('hidden');
                 } else {
-                    telegramBtn.querySelector('a').href = telegramLink;
-                    telegramBtn.classList.remove('hidden');
+                    document.getElementById('mock-otp-banner').classList.add('hidden');
                 }
+                document.getElementById('change-identifier-text').innerText = "Change phone number";
             } else {
-                if (telegramBtn) {
-                    telegramBtn.classList.add('hidden');
+                if (promptText) {
+                    promptText.innerText = `An OTP code has been sent to ${identifier}. Please check your email inbox to retrieve it.`;
                 }
+                // Securely hide mock banner for email tab as requested!
+                document.getElementById('mock-otp-banner').classList.add('hidden');
+                document.getElementById('change-identifier-text').innerText = "Change email address";
             }
 
             // Focus verify input
             document.getElementById('code').value = '';
             document.getElementById('code').focus();
-            lucide.createIcons();
         }
 
         function copyMockOTP() {
@@ -701,12 +703,22 @@
 
         async function handleRequestOTP(e) {
             e.preventDefault();
-            const phoneInput = document.getElementById('phone');
-            const emailInput = document.getElementById('email');
+
+            // 1. Enforce Terms and Conditions Acceptance before OTP Dispatch!
+            const acceptCheckbox = document.getElementById('accept-terms');
+            if (!acceptCheckbox || !acceptCheckbox.checked) {
+                alert("You must accept the Terms and Conditions before requesting an OTP code.");
+                return;
+            }
+
             const fd = new FormData();
+            let identifier = "";
 
             if (activeAuthTab === 'telegram') {
+                const phoneInput = document.getElementById('phone');
                 const phone = phoneInput.value.trim();
+
+                // Clean and count digits in the phone number/ID
                 const digits = phone.replace(/\D/g, '');
                 if (digits.length < 5) {
                     alert("Please enter a valid Phone Number or Telegram Chat ID containing at least 5 digits.");
@@ -714,7 +726,9 @@
                     return;
                 }
                 fd.append('phone', phone);
+                identifier = phone;
             } else {
+                const emailInput = document.getElementById('email');
                 const email = emailInput.value.trim();
                 if (!email) {
                     alert("Please enter a valid email address.");
@@ -722,6 +736,7 @@
                     return;
                 }
                 fd.append('email', email);
+                identifier = email;
             }
 
             const btn = document.getElementById('request-otp-btn');
@@ -737,12 +752,11 @@
 
                 if (res.ok && data.success) {
                     if (data.status === 'redirect') {
-                        alert("Account not linked to Telegram yet. Redirecting to Telegram Bot...");
-                        window.open(data.telegram_link, '_blank');
-                        showVerifyOTPForm(data.phone || '', data.otp_code || '', data.telegram_link);
+                        // Redirect prompt for non-linked Telegram accounts
+                        alert("Account not linked yet. Redirecting you to Telegram Bot to complete the handshake.");
+                        window.open(data.telegram_link, "_blank");
                     } else {
-                        const identifier = activeAuthTab === 'telegram' ? data.phone : data.email;
-                        showVerifyOTPForm(identifier, data.otp_code || '');
+                        showVerifyOTPForm(identifier, data.otp_code, activeAuthTab);
                     }
                 } else {
                     alert(data.detail || "Error requesting OTP code.");
@@ -763,23 +777,24 @@
 
         async function handleVerifyOTP(e) {
             e.preventDefault();
-            const phoneInput = document.getElementById('phone');
-            const emailInput = document.getElementById('email');
             const code = document.getElementById('code').value.trim();
             const btn = document.getElementById('verify-otp-btn');
 
             btn.disabled = true;
             btn.innerHTML = `<span class="animate-pulse">Verifying...</span>`;
 
-            try {
-                const fd = new FormData();
-                if (activeAuthTab === 'telegram') {
-                    fd.append('phone', phoneInput.value.trim());
-                } else {
-                    fd.append('email', emailInput.value.trim());
-                }
-                fd.append('code', code);
+            const fd = new FormData();
+            fd.append('code', code);
 
+            if (activeAuthTab === 'telegram') {
+                const phone = document.getElementById('phone').value.trim();
+                fd.append('phone', phone);
+            } else {
+                const email = document.getElementById('email').value.trim();
+                fd.append('email', email);
+            }
+
+            try {
                 const res = await fetch('/api/auth/otp-verify', {
                     method: 'POST',
                     body: fd
@@ -789,9 +804,6 @@
                 if (res.ok && data.success) {
                     currentUser = data.user;
                     document.getElementById('mock-otp-banner').classList.add('hidden');
-                    const telegramBtn = document.getElementById('telegram-link-btn');
-                    if (telegramBtn) telegramBtn.remove();
-
                     if (currentUser.has_profile) {
                         showAppScreen();
                     } else {
@@ -920,71 +932,34 @@
 
             const previewContainer = document.getElementById('image-preview-container');
             const previewImg = document.getElementById('image-preview');
+            const videoPreview = document.getElementById('video-preview-element');
             const clearBtn = document.getElementById('remove-preview-btn');
 
-            // If it is a video, show the WhatsApp trimmer cutter frame!
+            window.convertedGifFile = null;
+
             if (file.type.startsWith('video/')) {
-                currentVideoFile = file;
-                const cutterFrame = document.getElementById('video-cutter-frame');
-                const videoPreview = document.getElementById('cutter-preview-video');
-
-                // Show cutter frame
-                cutterFrame.classList.remove('hidden');
-
-                // Load video preview
-                const videoURL = URL.createObjectURL(file);
-                videoPreview.src = videoURL;
-                videoPreview.load(); // Explicit load to ensure it works reliably across all browsers!
-
-                videoPreview.onloadedmetadata = () => {
-                    currentVideoDuration = videoPreview.duration;
-
-                    // Set default inputs
-                    document.getElementById('trim-start').value = 0;
-                    document.getElementById('trim-start').max = currentVideoDuration;
-
-                    document.getElementById('trim-end').value = Math.min(60, currentVideoDuration).toFixed(1);
-                    document.getElementById('trim-end').max = currentVideoDuration;
-
-                    // Set up custom scrubber limits
-                    const scrubber = document.getElementById('video-scrubber');
-                    if (scrubber) {
-                        scrubber.max = currentVideoDuration;
-                        scrubber.value = 0;
-                    }
-                    const timeDisplay = document.getElementById('video-time-display');
-                    if (timeDisplay) {
-                        timeDisplay.innerText = `0.0s / ${currentVideoDuration.toFixed(1)}s`;
-                    }
-                    updatePlayPauseButtonState(false); // starts playing by default
-
-                    // Track video time updates to synchronize the scrubber and time display
-                    videoPreview.ontimeupdate = () => {
-                        const scr = document.getElementById('video-scrubber');
-                        if (scr) {
-                            scr.value = videoPreview.currentTime;
-                        }
-                        const td = document.getElementById('video-time-display');
-                        if (td) {
-                            td.innerText = `${videoPreview.currentTime.toFixed(1)}s / ${currentVideoDuration.toFixed(1)}s`;
-                        }
-                    };
-
-                    onTrimSliderChange();
-                    lucide.createIcons();
-                };
-
-                // Generate the timeline strip
-                generateTimelineThumbnails(file);
-
+                // Video selected: show inline video preview, hide image preview
+                if (previewImg) previewImg.classList.add('hidden');
+                if (videoPreview) {
+                    videoPreview.src = URL.createObjectURL(file);
+                    videoPreview.classList.remove('hidden');
+                }
+                if (previewContainer) previewContainer.classList.remove('hidden');
+                if (clearBtn) clearBtn.classList.remove('hidden');
             } else if (file.type.startsWith('image/')) {
-                // Standard image preview
-                window.convertedGifFile = null;
+                // Image selected: show inline image preview, hide video preview
+                if (videoPreview) {
+                    videoPreview.classList.add('hidden');
+                    videoPreview.src = "";
+                }
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    previewImg.src = e.target.result;
-                    previewContainer.classList.remove('hidden');
-                    clearBtn.classList.remove('hidden');
+                    if (previewImg) {
+                        previewImg.src = e.target.result;
+                        previewImg.classList.remove('hidden');
+                    }
+                    if (previewContainer) previewContainer.classList.remove('hidden');
+                    if (clearBtn) clearBtn.classList.remove('hidden');
                 }
                 reader.readAsDataURL(file);
             }
@@ -1246,6 +1221,12 @@
             const input = document.getElementById('topic-image');
             input.value = "";
             window.convertedGifFile = null;
+            document.getElementById('image-preview').classList.add('hidden');
+            const videoPreview = document.getElementById('video-preview-element');
+            if (videoPreview) {
+                videoPreview.classList.add('hidden');
+                videoPreview.src = "";
+            }
             document.getElementById('image-preview-container').classList.add('hidden');
             document.getElementById('remove-preview-btn').classList.add('hidden');
         }
@@ -1322,6 +1303,75 @@
                     <img src="${topic.image_url}" alt="Say image" class="w-full max-h-96 object-cover opacity-90 hover:opacity-100 transition duration-300">
                 </div>
             ` : '';
+
+            let videoTag = '';
+            if (topic.video) {
+                const v = topic.video;
+                videoTag = `
+                <div class="my-4 rounded-xl border border-slate-800 bg-slate-950 p-4 relative flex flex-col space-y-3">
+                    <!-- Video Title -->
+                    <div class="flex items-center justify-between text-xs text-slate-400">
+                        <span class="font-medium truncate max-w-[200px] flex items-center gap-1">
+                            <i class="h-3.5 w-3.5 text-indigo-400" data-lucide="video"></i>
+                            <span>${escapeHTML(v.title)}</span>
+                        </span>
+                        <span class="font-mono text-[9px] bg-slate-900 border border-slate-800 px-2 py-0.5 rounded text-indigo-400 font-bold uppercase tracking-wider">WhatsApp Status Mode</span>
+                    </div>
+
+                    <!-- Video Container -->
+                    <div class="relative rounded-lg overflow-hidden border border-slate-900 aspect-video bg-black flex items-center justify-center">
+                        <video id="video-player-${topic.id}" class="w-full h-full object-contain cursor-pointer" onclick="togglePlayerPlay(${topic.id})" playsinline></video>
+
+                        <!-- Overlay Play/Pause Big Icon -->
+                        <div id="video-overlay-${topic.id}" class="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/20 transition cursor-pointer" onclick="togglePlayerPlay(${topic.id})">
+                            <button class="p-4 bg-indigo-600 hover:bg-indigo-500 rounded-full text-white shadow-lg shadow-indigo-600/30 transform hover:scale-105 transition duration-150 flex items-center justify-center">
+                                <i id="play-icon-${topic.id}" data-lucide="play" class="h-8 w-8 fill-white"></i>
+                            </button>
+                        </div>
+
+                        <!-- Processing Indicator -->
+                        <div id="video-loading-${topic.id}" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-slate-950/95 space-y-3 z-20">
+                            <div class="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent"></div>
+                            <span class="text-xs text-slate-300 font-medium">Splitting Video into Status segments...</span>
+                        </div>
+                    </div>
+
+                    <!-- Segments Bar Indicators -->
+                    <div id="segments-container-${topic.id}" class="flex space-x-1 h-1 w-full bg-slate-900 rounded-full overflow-hidden">
+                    </div>
+
+                    <!-- Controls: Play/Pause, Scrubber, Time -->
+                    <div class="flex items-center space-x-3 text-slate-300 text-xs pt-1">
+                        <button onclick="togglePlayerPlay(${topic.id})" class="p-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-300 transition duration-150 flex items-center justify-center">
+                            <i id="btn-play-icon-${topic.id}" data-lucide="play" class="h-4 w-4"></i>
+                        </button>
+
+                        <!-- Timeline Scrubber Container with Hover Tooltip -->
+                        <div class="flex-grow relative h-8 flex items-center">
+                            <!-- Tooltip Preview Frame -->
+                            <div id="tooltip-${topic.id}" class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden z-30 pointer-events-none flex flex-col items-center">
+                                <div class="bg-slate-950 border border-indigo-500/50 rounded-lg p-1.5 shadow-2xl">
+                                    <img id="tooltip-img-${topic.id}" src="" class="w-24 h-auto object-cover rounded" alt="Scrub preview">
+                                    <div id="tooltip-time-${topic.id}" class="text-[9px] font-mono text-center text-slate-400 mt-1">0:00</div>
+                                </div>
+                                <div class="w-2 h-2 bg-slate-950 border-r border-b border-indigo-500/50 rotate-45 -mt-1"></div>
+                            </div>
+
+                            <input type="range" id="scrubber-${topic.id}" min="0" max="${v.duration || 60}" step="0.5" value="0"
+                                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
+                                oninput="onPlayerScrub(${topic.id}, this.value)"
+                                onmousemove="onPlayerScrubHover(event, ${topic.id}, ${v.id})"
+                                onmouseleave="hidePlayerScrubHover(${topic.id})">
+                        </div>
+
+                        <!-- Time display -->
+                        <div id="time-${topic.id}" class="font-mono text-[10px] select-none text-slate-400 shrink-0">
+                            0:00 / 0:00
+                        </div>
+                    </div>
+                </div>
+                `;
+            }
 
             const locationTag = '';
 
@@ -1515,6 +1565,9 @@
                         <!-- Say Image -->
                         ${imageTag}
 
+                        <!-- Say Video -->
+                        ${videoTag}
+
                         <!-- Engagement Metrics Info -->
                         <div class="flex items-center justify-between pt-1 text-xs text-slate-400">
                             <div class="flex items-center space-x-2 font-medium">
@@ -1619,6 +1672,16 @@
             }
 
             lucide.createIcons();
+
+            // Initialize custom status-style video players
+            topics.forEach(topic => {
+                if (topic.video) {
+                    // Slight delay to ensure elements are rendered and queryable in DOM
+                    setTimeout(() => {
+                        initVideoPlayer(topic.id, topic.video);
+                    }, 50);
+                }
+            });
         }
 
         function startCountdownTimer(topicId, totalSeconds, isHotTake = false) {
@@ -2011,6 +2074,278 @@
             dlAnchorElem.setAttribute("download", `conversation_${topicId}.csv`);
             dlAnchorElem.click();
             URL.revokeObjectURL(url);
+        }
+
+        // --- STATUS-STYLE VIDEO PLAYER REGISTRY AND CONTROLLER LOGIC ---
+
+        const activeVideoPlayers = {};
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "0:00";
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+
+        function initVideoPlayer(topicId, videoData) {
+            const videoElement = document.getElementById(`video-player-${topicId}`);
+            if (!videoElement) return;
+
+            // Set up player instance state
+            activeVideoPlayers[topicId] = {
+                videoId: videoData.id,
+                duration: videoData.duration || 0,
+                segmentsCount: videoData.segments_count || 0,
+                currentSegment: 0,
+                absoluteTime: 0,
+                isPlaying: false,
+                isPendingLoad: false
+            };
+
+            const inst = activeVideoPlayers[topicId];
+
+            // Render Segment bars indicators
+            const segmentsContainer = document.getElementById(`segments-container-${topicId}`);
+            if (segmentsContainer) {
+                segmentsContainer.innerHTML = '';
+                if (inst.segmentsCount > 0) {
+                    for (let i = 0; i < inst.segmentsCount; i++) {
+                        const bar = document.createElement('div');
+                        bar.id = `segment-bar-${topicId}-${i}`;
+                        bar.className = `flex-grow h-full bg-slate-800 rounded transition-all duration-150`;
+                        segmentsContainer.appendChild(bar);
+                    }
+                    // Highlight the first segment bar initially
+                    updateSegmentBars(topicId, 0, 0);
+                } else {
+                    // Still processing in background, poll metadata
+                    const loadingIndicator = document.getElementById(`video-loading-${topicId}`);
+                    if (loadingIndicator) loadingIndicator.classList.remove('hidden');
+
+                    const pollInterval = setInterval(async () => {
+                        try {
+                            const res = await fetch(`/api/videos/${videoData.id}/metadata`);
+                            const data = await res.json();
+                            if (res.ok && data.success && data.video.segments_count > 0) {
+                                clearInterval(pollInterval);
+                                if (loadingIndicator) loadingIndicator.classList.add('hidden');
+                                videoData.duration = data.video.duration;
+                                videoData.segments_count = data.video.segments_count;
+                                initVideoPlayer(topicId, videoData);
+                            }
+                        } catch (e) {
+                            console.error("Error polling video metadata:", e);
+                        }
+                    }, 2000);
+                    return;
+                }
+            }
+
+            // Set up time and scrubber max
+            const timeDisplay = document.getElementById(`time-${topicId}`);
+            if (timeDisplay) {
+                timeDisplay.innerText = `0:00 / ${formatTime(inst.duration)}`;
+            }
+            const scrubber = document.getElementById(`scrubber-${topicId}`);
+            if (scrubber) {
+                scrubber.max = inst.duration;
+                scrubber.value = 0;
+            }
+
+            // Bind video event listeners
+            videoElement.ontimeupdate = () => {
+                if (inst.isPendingLoad) return;
+
+                // Calculate absolute time
+                const relativeTime = videoElement.currentTime;
+                inst.absoluteTime = (inst.currentSegment * 60) + relativeTime;
+
+                // Sync scrubber
+                if (scrubber) {
+                    scrubber.value = inst.absoluteTime;
+                }
+
+                // Sync text time display
+                if (timeDisplay) {
+                    timeDisplay.innerText = `${formatTime(inst.absoluteTime)} / ${formatTime(inst.duration)}`;
+                }
+
+                // Fill segment progress bars
+                updateSegmentBars(topicId, inst.currentSegment, relativeTime);
+            };
+
+            videoElement.onended = () => {
+                // If there's a next segment, play it!
+                if (inst.currentSegment + 1 < inst.segmentsCount) {
+                    loadPlayerSegment(topicId, inst.currentSegment + 1, 0, true);
+                } else {
+                    // Reset player to start
+                    inst.isPlaying = false;
+                    loadPlayerSegment(topicId, 0, 0, false);
+                    updatePlayPauseUI(topicId, false);
+                }
+            };
+
+            // Load first segment (segment index 0)
+            loadPlayerSegment(topicId, 0, 0, false);
+        }
+
+        function updateSegmentBars(topicId, activeSegmentIndex, relativeTime) {
+            const inst = activeVideoPlayers[topicId];
+            if (!inst) return;
+
+            for (let i = 0; i < inst.segmentsCount; i++) {
+                const bar = document.getElementById(`segment-bar-${topicId}-${i}`);
+                if (!bar) continue;
+
+                if (i < activeSegmentIndex) {
+                    // Fully played segments
+                    bar.style.backgroundImage = '';
+                    bar.style.backgroundColor = '#4f46e5'; // indigo-600
+                } else if (i === activeSegmentIndex) {
+                    // Active segment (proportional fill)
+                    const percent = (relativeTime / 60) * 100;
+                    bar.style.backgroundImage = `linear-gradient(to right, #4f46e5 ${percent}%, #1e293b ${percent}%)`;
+                } else {
+                    // Future segments
+                    bar.style.backgroundImage = '';
+                    bar.style.backgroundColor = '#1e293b'; // slate-800
+                }
+            }
+        }
+
+        function loadPlayerSegment(topicId, segmentIndex, relativeTime = 0, autoPlay = false) {
+            const inst = activeVideoPlayers[topicId];
+            const videoElement = document.getElementById(`video-player-${topicId}`);
+            if (!inst || !videoElement) return;
+
+            inst.currentSegment = segmentIndex;
+            inst.isPendingLoad = true;
+
+            videoElement.src = `/api/videos/${inst.videoId}/segments/${segmentIndex}`;
+            videoElement.load();
+
+            videoElement.onloadedmetadata = () => {
+                videoElement.currentTime = relativeTime;
+                inst.isPendingLoad = false;
+
+                // Track absolute time
+                inst.absoluteTime = (segmentIndex * 60) + relativeTime;
+
+                if (autoPlay || inst.isPlaying) {
+                    inst.isPlaying = true;
+                    videoElement.play().catch(err => {
+                        console.log("Autoplay blocked/interrupted:", err);
+                        inst.isPlaying = false;
+                        updatePlayPauseUI(topicId, false);
+                    });
+                    updatePlayPauseUI(topicId, true);
+                } else {
+                    updatePlayPauseUI(topicId, false);
+                }
+            };
+        }
+
+        function togglePlayerPlay(topicId) {
+            const inst = activeVideoPlayers[topicId];
+            const videoElement = document.getElementById(`video-player-${topicId}`);
+            if (!inst || !videoElement) return;
+
+            if (inst.isPlaying) {
+                videoElement.pause();
+                inst.isPlaying = false;
+                updatePlayPauseUI(topicId, false);
+            } else {
+                // Pause all other playing videos to avoid chaos
+                Object.keys(activeVideoPlayers).forEach(id => {
+                    if (id !== String(topicId) && activeVideoPlayers[id].isPlaying) {
+                        const otherVid = document.getElementById(`video-player-${id}`);
+                        if (otherVid) otherVid.pause();
+                        activeVideoPlayers[id].isPlaying = false;
+                        updatePlayPauseUI(id, false);
+                    }
+                });
+
+                videoElement.play().then(() => {
+                    inst.isPlaying = true;
+                    updatePlayPauseUI(topicId, true);
+                }).catch(err => {
+                    console.error("Playback failed:", err);
+                });
+            }
+        }
+
+        function updatePlayPauseUI(topicId, isPlaying) {
+            const playIcon = document.getElementById(`play-icon-${topicId}`);
+            const btnPlayIcon = document.getElementById(`btn-play-icon-${topicId}`);
+            const overlay = document.getElementById(`video-overlay-${topicId}`);
+
+            if (isPlaying) {
+                if (overlay) overlay.classList.add('opacity-0', 'pointer-events-none');
+                if (playIcon) playIcon.setAttribute('data-lucide', 'pause');
+                if (btnPlayIcon) btnPlayIcon.setAttribute('data-lucide', 'pause');
+            } else {
+                if (overlay) overlay.classList.remove('opacity-0', 'pointer-events-none');
+                if (playIcon) playIcon.setAttribute('data-lucide', 'play');
+                if (btnPlayIcon) btnPlayIcon.setAttribute('data-lucide', 'play');
+            }
+            lucide.createIcons();
+        }
+
+        function onPlayerScrub(topicId, val) {
+            const inst = activeVideoPlayers[topicId];
+            if (!inst) return;
+
+            const targetTime = parseFloat(val);
+            const targetSegment = Math.floor(targetTime / 60);
+            const relativeTime = targetTime % 60;
+
+            if (inst.currentSegment !== targetSegment) {
+                // Switch segment chunk dynamically
+                loadPlayerSegment(topicId, targetSegment, relativeTime, inst.isPlaying);
+            } else {
+                const videoElement = document.getElementById(`video-player-${topicId}`);
+                if (videoElement) {
+                    videoElement.currentTime = relativeTime;
+                    inst.absoluteTime = targetTime;
+                }
+            }
+        }
+
+        function onPlayerScrubHover(event, topicId, videoId) {
+            const inst = activeVideoPlayers[topicId];
+            const scrubber = document.getElementById(`scrubber-${topicId}`);
+            const tooltip = document.getElementById(`tooltip-${topicId}`);
+            const tooltipImg = document.getElementById(`tooltip-img-${topicId}`);
+            const tooltipTime = document.getElementById(`tooltip-time-${topicId}`);
+
+            if (!inst || !scrubber || !tooltip || !tooltipImg) return;
+
+            // Calculate hovered time based on cursor position inside the scrubber range input
+            const rect = scrubber.getBoundingClientRect();
+            const hoverX = event.clientX - rect.left;
+            const percent = Math.max(0, Math.min(1, hoverX / rect.width));
+            const hoverTime = percent * inst.duration;
+
+            // Position tooltip
+            tooltip.style.left = `${percent * 100}%`;
+            tooltip.classList.remove('hidden');
+
+            // Format time
+            if (tooltipTime) {
+                tooltipTime.innerText = formatTime(hoverTime);
+            }
+
+            // Calculate thumbnail index: fps is 0.5 (1 frame every 2s). Index is Math.floor(hoverTime / 2) + 1
+            const thumbIndex = Math.floor(hoverTime / 2) + 1;
+            tooltipImg.src = `/api/videos/${videoId}/thumbnails/${thumbIndex}`;
+        }
+
+        function hidePlayerScrubHover(topicId) {
+            const tooltip = document.getElementById(`tooltip-${topicId}`);
+            if (tooltip) {
+                tooltip.classList.add('hidden');
+            }
         }
     </script>
 </body>

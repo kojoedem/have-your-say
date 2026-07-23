@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, inspect, text  # type: ignore[import]
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, Float, inspect, text  # type: ignore[import]
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship  # type: ignore[import]
 
 #this is the database
@@ -27,6 +27,7 @@ class User(Base):
 
     topics = relationship("Topic", back_populates="author")
     comments = relationship("Comment", back_populates="author")
+    videos = relationship("Video", back_populates="owner")
 
 class Topic(Base):
     __tablename__ = "topics"
@@ -42,6 +43,22 @@ class Topic(Base):
 
     author = relationship("User", back_populates="topics")
     comments = relationship("Comment", back_populates="topics", cascade="all, delete-orphan")
+    videos = relationship("Video", back_populates="topic", cascade="all, delete-orphan")
+
+class Video(Base):
+    __tablename__ = "videos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=True)
+    title = Column(String, nullable=True)
+    filename = Column(String, nullable=False)
+    duration = Column(Float, nullable=True)
+    segments_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    owner = relationship("User", back_populates="videos")
+    topic = relationship("Topic", back_populates="videos")
 
 class Comment(Base):
     __tablename__ = "comments"
@@ -102,6 +119,9 @@ def init_db():
         if 'allow_download' not in columns:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE topics ADD COLUMN allow_download BOOLEAN DEFAULT 1"))
+
+    # Now handle videos table creation
+    Base.metadata.create_all(bind=engine)
 
 def get_db():
     db = SessionLocal()
