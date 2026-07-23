@@ -49,8 +49,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Welcome to Have Your Say! Use the app to login.")
 
 def run_bot():
-    if not BOT_TOKEN:
-        print("TELEGRAM_BOT_TOKEN not configured. Bot polling not started.")
+    if not BOT_TOKEN or BOT_TOKEN.lower() in ["your_bot_token", "your_token", "yourbottoken", "fake", ""]:
+        print("[Telegram Bot] TELEGRAM_BOT_TOKEN not configured or is a placeholder. Bot polling not started.")
         return
 
     import asyncio
@@ -60,12 +60,22 @@ def run_bot():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
+    try:
+        from telegram.error import InvalidToken
+    except ImportError:
+        InvalidToken = Exception
 
-    print("Starting Telegram Bot polling...")
-    # close_loop=False and stop_signals=False prevent signal handler errors on background threads
-    app.run_polling(close_loop=False, stop_signals=False)
+    try:
+        app = ApplicationBuilder().token(BOT_TOKEN).build()
+        app.add_handler(CommandHandler("start", start))
+
+        print("Starting Telegram Bot polling...")
+        # close_loop=False and stop_signals=False prevent signal handler errors on background threads
+        app.run_polling(close_loop=False, stop_signals=False)
+    except InvalidToken as e:
+        print(f"[Telegram Bot Error] Failed to initialize bot with token `{BOT_TOKEN}`: {e}")
+    except Exception as e:
+        print(f"[Telegram Bot Error] Unexpected error starting bot: {e}")
 
 if __name__ == "__main__":
     run_bot()
