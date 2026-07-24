@@ -322,10 +322,21 @@ def create_topic(
             db.refresh(video_record)
 
             # Save raw original video file
-            from video_processor import VIDEO_ORIGINAL_DIR
+            from video_processor import VIDEO_ORIGINAL_DIR, get_video_duration
             original_path = VIDEO_ORIGINAL_DIR / f"{video_record.id}_{image.filename}"
             with open(original_path, "wb") as buffer:
                 shutil.copyfileobj(image.file, buffer)
+
+            # Validate video duration is not greater than 1 minute (60 seconds)
+            duration = get_video_duration(str(original_path))
+            if duration > 60.1:
+                try:
+                    original_path.unlink()
+                except Exception as e:
+                    print(f"Error unlinking video of too long duration: {e}")
+                db.delete(video_record)
+                db.commit()
+                raise HTTPException(status_code=400, detail="Video exceeds the maximum duration limit of 1 minute (60 seconds).")
 
             # Trigger background segment processing and thumbnail extraction
             background_tasks.add_task(
