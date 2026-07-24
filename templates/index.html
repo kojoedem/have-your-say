@@ -1748,59 +1748,15 @@
                             <i class="h-3.5 w-3.5 text-indigo-400" data-lucide="video"></i>
                             <span>${escapeHTML(v.title)}</span>
                         </span>
-                        <span class="font-mono text-[9px] bg-slate-900 border border-slate-800 px-2 py-0.5 rounded text-indigo-400 font-bold uppercase tracking-wider">WhatsApp Status Mode</span>
+                        <span class="font-mono text-[9px] bg-slate-900 border border-slate-800 px-2 py-0.5 rounded text-indigo-400 font-bold uppercase tracking-wider">Video Clip</span>
                     </div>
 
                     <!-- Video Container -->
                     <div class="relative rounded-lg overflow-hidden border border-slate-900 aspect-video bg-black flex items-center justify-center">
-                        <video id="video-player-${topic.id}" class="w-full h-full object-contain cursor-pointer" onclick="togglePlayerPlay(${topic.id})" playsinline></video>
-
-                        <!-- Overlay Play/Pause Big Icon -->
-                        <div id="video-overlay-${topic.id}" class="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/20 transition cursor-pointer" onclick="togglePlayerPlay(${topic.id})">
-                            <button class="p-4 bg-indigo-600 hover:bg-indigo-500 rounded-full text-white shadow-lg shadow-indigo-600/30 transform hover:scale-105 transition duration-150 flex items-center justify-center">
-                                <i id="play-icon-${topic.id}" data-lucide="play" class="h-8 w-8 fill-white"></i>
-                            </button>
-                        </div>
-
-                        <!-- Processing Indicator -->
-                        <div id="video-loading-${topic.id}" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-slate-950/95 space-y-3 z-20">
-                            <div class="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent"></div>
-                            <span class="text-xs text-slate-300 font-medium">Splitting Video into Status segments...</span>
-                        </div>
-                    </div>
-
-                    <!-- Segments Bar Indicators -->
-                    <div id="segments-container-${topic.id}" class="flex space-x-1 h-1 w-full bg-slate-900 rounded-full overflow-hidden">
-                    </div>
-
-                    <!-- Controls: Play/Pause, Scrubber, Time -->
-                    <div class="flex items-center space-x-3 text-slate-300 text-xs pt-1">
-                        <button onclick="togglePlayerPlay(${topic.id})" class="p-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-300 transition duration-150 flex items-center justify-center">
-                            <i id="btn-play-icon-${topic.id}" data-lucide="play" class="h-4 w-4"></i>
-                        </button>
-
-                        <!-- Timeline Scrubber Container with Hover Tooltip -->
-                        <div class="flex-grow relative h-8 flex items-center">
-                            <!-- Tooltip Preview Frame -->
-                            <div id="tooltip-${topic.id}" class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden z-30 pointer-events-none flex flex-col items-center">
-                                <div class="bg-slate-950 border border-indigo-500/50 rounded-lg p-1.5 shadow-2xl">
-                                    <img id="tooltip-img-${topic.id}" src="" class="w-24 h-auto object-cover rounded" alt="Scrub preview">
-                                    <div id="tooltip-time-${topic.id}" class="text-[9px] font-mono text-center text-slate-400 mt-1">0:00</div>
-                                </div>
-                                <div class="w-2 h-2 bg-slate-950 border-r border-b border-indigo-500/50 rotate-45 -mt-1"></div>
-                            </div>
-
-                            <input type="range" id="scrubber-${topic.id}" min="0" max="${v.duration || 60}" step="0.5" value="0"
-                                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
-                                oninput="onPlayerScrub(${topic.id}, this.value)"
-                                onmousemove="onPlayerScrubHover(event, ${topic.id}, ${v.id})"
-                                onmouseleave="hidePlayerScrubHover(${topic.id})">
-                        </div>
-
-                        <!-- Time display -->
-                        <div id="time-${topic.id}" class="font-mono text-[10px] select-none text-slate-400 shrink-0">
-                            0:00 / 0:00
-                        </div>
+                        <video class="w-full h-full object-contain" controls playsinline>
+                            <source src="/api/videos/${v.id}/play" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
                     </div>
                 </div>
                 `;
