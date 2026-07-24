@@ -23,3 +23,5 @@ venv/
 
 # Project specific
 /have-your-say/
+/videos/*
+env_var.py
