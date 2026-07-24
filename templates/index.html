@@ -1109,7 +1109,7 @@
 
             // Header configuration (Desktop)
             document.getElementById('header-user-controls').classList.remove('hidden');
-            document.getElementById('header-username').innerText = `@${currentUser.username} (You: ${currentUser.alias || ''})`;
+            document.getElementById('header-username').innerText = `@${currentUser.username} (You: ${currentUser.alias || ''}) (Credibility: ${currentUser.credibility || 50}%)`;
             document.getElementById('header-username').title = `Belief: ${currentUser.belief || 'None'}`;
 
             const initial = currentUser.username ? currentUser.username[0].toUpperCase() : 'U';
@@ -1942,6 +1942,31 @@
                 }
             }
 
+            // Create truth validation status badge
+            let statusBadge = '';
+            if (topic.verification_status === "Verified (trusted)") {
+                statusBadge = `
+                    <div class="flex items-center space-x-1 text-[11px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-full shadow-lg">
+                        <i data-lucide="shield-check" class="h-3.5 w-3.5 fill-emerald-500/10"></i>
+                        <span>Verified</span>
+                    </div>
+                `;
+            } else if (topic.verification_status === "Disverified (rejected)") {
+                statusBadge = `
+                    <div class="flex items-center space-x-1 text-[11px] text-rose-400 font-bold bg-rose-500/10 border border-rose-500/25 px-2.5 py-1 rounded-full shadow-lg">
+                        <i data-lucide="shield-alert" class="h-3.5 w-3.5 fill-rose-500/10"></i>
+                        <span>Disverified</span>
+                    </div>
+                `;
+            } else {
+                statusBadge = `
+                    <div class="flex items-center space-x-1 text-[11px] text-amber-400 font-bold bg-amber-500/10 border border-amber-500/25 px-2.5 py-1 rounded-full shadow-lg">
+                        <i data-lucide="help-circle" class="h-3.5 w-3.5 fill-amber-500/10"></i>
+                        <span>Disputed</span>
+                    </div>
+                `;
+            }
+
             return `
                 <div class="bg-slate-900 ${borderStyle} rounded-2xl overflow-hidden relative" id="${elementId}">
 
@@ -1958,12 +1983,13 @@
                                     @
                                 </div>
                                 <div>
-                                    <div class="text-sm font-bold text-white cursor-help border-b border-dashed border-slate-700" title="Belief: ${escapeHTML(topic.author.belief || 'None')}">@${escapeHTML(topic.author.username)}</div>
+                                    <div class="text-sm font-bold text-white cursor-help border-b border-dashed border-slate-700" title="Belief: ${escapeHTML(topic.author.belief || 'None')}">@${escapeHTML(topic.author.username)} <span class="text-xs text-indigo-400 font-semibold" title="Based on ratio of verified says and consistency">(Credibility: ${topic.author.credibility || 50}%)</span></div>
                                 </div>
                             </div>
 
                             <div class="flex items-center space-x-2">
                                 ${locationTag}
+                                ${statusBadge}
                                 ${downloadControls}
                                 <div class="flex items-center space-x-1 text-xs text-indigo-300 font-semibold bg-indigo-950/40 border border-indigo-900/30 rounded-lg py-1 px-2">
                                     <i data-lucide="clock" class="h-3.5 w-3.5 text-indigo-400 animate-pulse"></i>
@@ -1990,6 +2016,18 @@
 
                         <!-- Say Video -->
                         ${videoTag}
+
+                        <!-- Verification Action Row -->
+                        <div class="flex items-center space-x-3 pt-2 pb-1 border-t border-b border-slate-800/40">
+                            <button onclick="voteTopic(${topic.id}, 'verify')" class="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl border text-xs font-semibold transition-all duration-150 ${topic.user_vote === 'verify' ? 'bg-emerald-500/15 border-emerald-500 text-emerald-400 font-bold shadow shadow-emerald-500/5' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'}" title="Confirm this represents truth">
+                                <i data-lucide="shield-check" class="h-4 w-4"></i>
+                                <span>Verify (${topic.verify_count || 0})</span>
+                            </button>
+                            <button onclick="voteTopic(${topic.id}, 'disverify')" class="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl border text-xs font-semibold transition-all duration-150 ${topic.user_vote === 'disverify' ? 'bg-rose-500/15 border-rose-500 text-rose-400 font-bold shadow shadow-rose-500/5' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'}" title="Dispute / reject this say/claim">
+                                <i data-lucide="shield-alert" class="h-4 w-4"></i>
+                                <span>Disverify (${topic.disverify_count || 0})</span>
+                            </button>
+                        </div>
 
                         <!-- Engagement Metrics Info -->
                         <div class="flex items-center justify-between pt-1 text-xs text-slate-400">
@@ -2288,6 +2326,30 @@
                     setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500'), 2500);
                 }
             }, isMobile ? 100 : 0);
+        }
+
+        async function voteTopic(topicId, voteType) {
+            try {
+                const fd = new FormData();
+                fd.append('vote_type', voteType);
+
+                const res = await fetch(`/api/topics/${topicId}/vote`, {
+                    method: 'POST',
+                    body: fd
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    // Instantly reload feed and trending list to reflect updated verification statuses and counts
+                    fetchFeed();
+                    fetchTrending();
+                } else {
+                    alert(data.detail || "Error casting vote.");
+                }
+            } catch (err) {
+                console.error("Voting error:", err);
+                alert("Failed to reach server.");
+            }
         }
 
         async function toggleTopicDownload(topicId, allow) {

@@ -370,3 +370,105 @@ def test_trim_selected_video_frame_processing():
         trimmed_segment.unlink()
     for thumb in VIDEO_THUMBNAIL_DIR.glob(f"{video_id}_*.jpg"):
         thumb.unlink()
+
+
+def test_user_credibility_and_verification_votes():
+    # 1. Setup User A (Author) and User B & C (voters)
+    create_and_verify_user("+15550000001", "author_user", "Absolute Honesty")
+
+    # User A creates a topic/say
+    resp = client.post("/api/topics", data={"text": "This is a claim to verify!"})
+    assert resp.status_code == 200
+    topic_id = resp.json()["topic"]["id"]
+
+    # Retrieve feed - topic should be "Disputed (uncertain)" by default
+    feed_resp = client.get("/api/topics")
+    assert feed_resp.json()["topics"][0]["verification_status"] == "Disputed (uncertain)"
+    assert feed_resp.json()["topics"][0]["author"]["credibility"] == 50
+
+    # 2. Login as User B and verify topic
+    create_and_verify_user("+15550000002", "voter_b", "Verification is good")
+    vote_resp = client.post(f"/api/topics/{topic_id}/vote", data={"vote_type": "verify"})
+    assert vote_resp.status_code == 200
+    assert vote_resp.json()["verification_status"] == "Disputed (uncertain)" # W_v - W_d = 1.0 (requires >= 1.5)
+
+    # 3. Login as User C and verify topic
+    create_and_verify_user("+15550000003", "voter_c", "Truth is good")
+    vote_resp2 = client.post(f"/api/topics/{topic_id}/vote", data={"vote_type": "verify"})
+    assert vote_resp2.status_code == 200
+    assert vote_resp2.json()["verification_status"] == "Verified (trusted)" # W_v - W_d = 2.0 >= 1.5
+
+    # Check updated feed
+    feed_resp2 = client.get("/api/topics")
+    assert feed_resp2.json()["topics"][0]["verification_status"] == "Verified (trusted)"
+    # User A (Author) has their say verified, so their credibility should increase!
+    assert feed_resp2.json()["topics"][0]["author"]["credibility"] > 50
+
+
+def test_periodic_pseudonym_rotation():
+    phone = "+15558881234"
+    create_and_verify_user(phone, "initial_alias", "My belief statement")
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.phone == phone).first()
+        assert user is not None
+        assert user.alias == "initial_alias"
+
+        # Simulate that 12 hours have passed since the last pseudonym update
+        user.pseudonym_updated_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=13)
+        db.commit()
+
+        # Call get /api/auth/me to trigger automatic rotation in get_current_user
+        me_resp = client.get("/api/auth/me")
+        assert me_resp.status_code == 200
+        assert me_resp.json()["authenticated"] is True
+
+        rotated_username = me_resp.json()["user"]["username"]
+        assert rotated_username != "initial_alias"
+        assert rotated_username is not None
+    finally:
+        db.close()
+
+
+def test_weighted_vote_influence():
+    # User A is the author
+    create_and_verify_user("+15559990001", "author_weight", "Claim Creator")
+    topic_id = client.post("/api/topics", data={"text": "Weight test claim"}).json()["topic"]["id"]
+
+    # Voter B has low credibility (e.g. they have disverified topics/says, or just base 50)
+    create_and_verify_user("+15559990002", "voter_b", "Normal voter")
+    # Voter C has high credibility (by having 2 verified topics/says under their belt)
+    create_and_verify_user("+15559990003", "voter_c", "Trusted sentinel")
+
+    # Let's verify voter_c's posts using Voter B
+    topic_c1 = client.post("/api/topics", data={"text": "Sentinel claim 1"}).json()["topic"]["id"]
+    topic_c2 = client.post("/api/topics", data={"text": "Sentinel claim 2"}).json()["topic"]["id"]
+
+    # B verifies C1 & C2
+    create_and_verify_user("+15559990002", "voter_b", "Normal voter")
+    client.post(f"/api/topics/{topic_c1}/vote", data={"vote_type": "verify"})
+    client.post(f"/api/topics/{topic_c2}/vote", data={"vote_type": "verify"})
+
+    # Let's add some more verifications from other users to ensure C's claims are Verified
+    for i in range(2):
+        create_and_verify_user(f"+1555999200{i}", f"helper_{i}", "Help")
+        client.post(f"/api/topics/{topic_c1}/vote", data={"vote_type": "verify"})
+        client.post(f"/api/topics/{topic_c2}/vote", data={"vote_type": "verify"})
+
+    # Voter C's credibility score should now be high! Let's check it:
+    db = SessionLocal()
+    try:
+        user_c = db.query(User).filter(User.phone == "+15559990003").first()
+        from main import calculate_user_credibility
+        cred_c = calculate_user_credibility(user_c.id, db)
+        assert cred_c > 50  # Sentiment/Laplace smoothing makes it higher than 50
+    finally:
+        db.close()
+
+    # Voter C disverifies the target claim
+    create_and_verify_user("+15559990003", "voter_c", "Trusted sentinel")
+    vote_resp = client.post(f"/api/topics/{topic_id}/vote", data={"vote_type": "disverify"})
+    # Since C has high credibility (weight > 1.0), their single vote is worth more and can classify the post!
+    assert vote_resp.status_code == 200
+    assert vote_resp.json()["verification_status"] == "Disverified (rejected)"

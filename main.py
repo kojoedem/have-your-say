@@ -56,12 +56,112 @@ def start_telegram_bot():
         bot_thread.start()
         print("[main] Started Telegram bot polling in a background thread.")
 
+def calculate_user_credibility(user_id: int, db: Session, depth: int = 0) -> int:
+    """
+    Each user builds a hidden credibility score based on:
+    - Ratio of verified vs disverified posts (smoothed with Laplace)
+    - Quality and consistency of contributions (+1 per comment on other users' topics, max +10)
+    Capped between 10 and 100.
+    """
+    if depth >= 2:
+        return 50
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return 50
+
+    topics = db.query(Topic).filter(Topic.user_id == user_id).all()
+    n_verified = 0
+    n_disverified = 0
+
+    for t in topics:
+        status, _, _ = classify_topic(t.id, db, depth=depth)
+        if status == "Verified (trusted)":
+            n_verified += 1
+        elif status == "Disverified (rejected)":
+            n_disverified += 1
+
+    if n_verified + n_disverified > 0:
+        ratio_term = (n_verified - n_disverified) / (n_verified + n_disverified + 2)
+        score = 50.0 + 50.0 * ratio_term
+    else:
+        score = 50.0
+
+    # Quality and consistency bonus: count comments on other users' topics
+    comment_count = (
+        db.query(Comment)
+        .join(Topic, Comment.topic_id == Topic.id)
+        .filter(Comment.user_id == user_id, Topic.user_id != user_id)
+        .count()
+    )
+    score += min(comment_count, 10)
+
+    return max(10, min(100, int(round(score))))
+
+
+def classify_topic(topic_id: int, db: Session, depth: int = 0):
+    """
+    Classifies a topic dynamically:
+    - Sum of weighted verify votes (W_v) and disverify votes (W_d), where weights
+      are proportional to voters' credibility: Weight = voter_credibility / 50.0.
+    - Classification: Verified (trusted) if W_v - W_d >= 1.5,
+                      Disverified (rejected) if W_d - W_v >= 1.5,
+                      otherwise Disputed (uncertain).
+    """
+    from database import VerificationVote
+    votes = db.query(VerificationVote).filter(VerificationVote.topic_id == topic_id).all()
+
+    if depth >= 1:
+        # Simple unweighted calculation to break cycle/recursion
+        v_count = sum(1 for v in votes if v.vote_type == "verify")
+        d_count = sum(1 for v in votes if v.vote_type == "disverify")
+        if v_count - d_count >= 2:
+            return "Verified (trusted)", float(v_count), float(d_count)
+        elif d_count - v_count >= 2:
+            return "Disverified (rejected)", float(v_count), float(d_count)
+        else:
+            return "Disputed (uncertain)", float(v_count), float(d_count)
+
+    w_v = 0.0
+    w_d = 0.0
+    for v in votes:
+        cred = calculate_user_credibility(v.user_id, db, depth=depth + 1)
+        weight = cred / 50.0
+        if v.vote_type == "verify":
+            w_v += weight
+        else:
+            w_d += weight
+
+    if w_v - w_d >= 1.5:
+        return "Verified (trusted)", w_v, w_d
+    elif w_d - w_v >= 1.5:
+        return "Disverified (rejected)", w_v, w_d
+    else:
+        return "Disputed (uncertain)", w_v, w_d
+
+
+def check_and_update_pseudonym(user: User, db: Session):
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    # Check if 12 hours have passed since pseudonym_updated_at
+    if not user.pseudonym_updated_at or (now - user.pseudonym_updated_at) >= timedelta(hours=12):
+        adjectives = ["Silent", "Quiet", "Hidden", "Shadow", "Deep", "Bold", "Free", "Wild", "Bright", "Epic", "Magic", "Crypto", "Nova", "Cosmic", "Mystic"]
+        nouns = ["Thinker", "Voice", "Echo", "Philosopher", "Dreamer", "Seeker", "Rebel", "Mind", "Nomad", "Wanderer", "Stargazer", "Oracle", "Scribe"]
+        random_alias = f"{random.choice(adjectives)}_{random.choice(nouns)}"
+        random_suffix = secrets.token_hex(2)
+
+        user.alias = random_alias
+        user.username = f"{random_alias}_{random_suffix}"
+        user.pseudonym_updated_at = now
+        db.commit()
+
+
 # --- Helper to get authenticated user ---
 def get_current_user(session_token: Optional[str] = Cookie(None), db: Session = Depends(get_db)) -> Optional[User]:
     if not session_token:
         return None
     user = db.query(User).filter(User.session_token == session_token).first()
     if user and user.is_verified:
+        check_and_update_pseudonym(user, db)
         return user
     return None
 
@@ -202,6 +302,7 @@ def verify_otp_endpoint(
 
     user.alias = random_alias
     user.username = f"{random_alias}_{random_suffix}"
+    user.pseudonym_updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     user.is_verified = True
     user.otp_code = None
@@ -217,6 +318,8 @@ def verify_otp_endpoint(
         samesite="lax"
     )
 
+    cred = calculate_user_credibility(user.id, db)
+
     return {
         "success": True,
         "message": "Authentication successful.",
@@ -227,7 +330,8 @@ def verify_otp_endpoint(
             "username": user.username,
             "alias": user.alias,
             "belief": user.belief,
-            "has_profile": bool(user.username)
+            "has_profile": bool(user.username),
+            "credibility": cred
         }
     }
 
@@ -250,7 +354,10 @@ def update_profile(
     user.alias = alias
     user.username = public_username
     user.belief = belief
+    user.pseudonym_updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
+
+    cred = calculate_user_credibility(user.id, db)
 
     return {
         "success": True,
@@ -262,14 +369,16 @@ def update_profile(
             "username": user.username,
             "alias": user.alias,
             "belief": user.belief,
-            "has_profile": True
+            "has_profile": True,
+            "credibility": cred
         }
     }
 
 @app.get("/api/auth/me")
-def get_me(user: Optional[User] = Depends(get_current_user)):
+def get_me(user: Optional[User] = Depends(get_current_user), db: Session = Depends(get_db)):
     if not user:
         return {"authenticated": False}
+    cred = calculate_user_credibility(user.id, db)
     return {
         "authenticated": True,
         "user": {
@@ -279,7 +388,8 @@ def get_me(user: Optional[User] = Depends(get_current_user)):
             "username": user.username,
             "alias": user.alias,
             "belief": user.belief,
-            "has_profile": bool(user.username)
+            "has_profile": bool(user.username),
+            "credibility": cred
         }
     }
 
@@ -400,6 +510,8 @@ def create_topic(
             "segments_count": video_record.segments_count
         }
 
+    cred = calculate_user_credibility(user.id, db)
+
     return {
         "success": True,
         "topic": {
@@ -414,13 +526,18 @@ def create_topic(
             "author": {
                 "id": user.id,
                 "username": user.username or "Anonymous",
-                "belief": user.belief or ""
-            }
+                "belief": user.belief or "",
+                "credibility": cred
+            },
+            "verification_status": "Disputed (uncertain)",
+            "verify_count": 0,
+            "disverify_count": 0,
+            "user_vote": None
         }
     }
 
 @app.get("/api/topics")
-def get_topics(db: Session = Depends(get_db)):
+def get_topics(db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_current_user)):
     now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
     active_topics = db.query(Topic).filter(Topic.expires_at > now_naive).all()
 
@@ -428,6 +545,8 @@ def get_topics(db: Session = Depends(get_db)):
 
     topics_with_counts = []
     max_comments = 0
+
+    from database import VerificationVote
 
     for t in active_topics:
         comm_count = len(t.comments)
@@ -499,6 +618,18 @@ def get_topics(db: Session = Depends(get_db)):
                 "segments_count": v.segments_count
             }
 
+        status, _, _ = classify_topic(t.id, db)
+        actual_verify = db.query(VerificationVote).filter(VerificationVote.topic_id == t.id, VerificationVote.vote_type == "verify").count()
+        actual_disverify = db.query(VerificationVote).filter(VerificationVote.topic_id == t.id, VerificationVote.vote_type == "disverify").count()
+
+        user_vote = None
+        if current_user:
+            vote_obj = db.query(VerificationVote).filter(VerificationVote.topic_id == t.id, VerificationVote.user_id == current_user.id).first()
+            if vote_obj:
+                user_vote = vote_obj.vote_type
+
+        author_cred = calculate_user_credibility(t.user_id, db)
+
         topics_with_counts.append({
             "id": t.id,
             "text": t.text,
@@ -514,8 +645,13 @@ def get_topics(db: Session = Depends(get_db)):
             "author": {
                 "id": t.author.id,
                 "username": t.author.username or "Anonymous",
-                "belief": t.author.belief or ""
-            }
+                "belief": t.author.belief or "",
+                "credibility": author_cred
+            },
+            "verification_status": status,
+            "verify_count": actual_verify,
+            "disverify_count": actual_disverify,
+            "user_vote": user_vote
         })
 
     for item in topics_with_counts:
@@ -584,7 +720,7 @@ def create_comment(
     }
 
 @app.get("/api/trending")
-def get_trending_topics(db: Session = Depends(get_db)):
+def get_trending_topics(db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_current_user)):
     now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
     active_topics = db.query(Topic).filter(Topic.expires_at > now_naive).all()
 
@@ -592,6 +728,16 @@ def get_trending_topics(db: Session = Depends(get_db)):
 
     trending = []
     for t in sorted_topics[:5]:
+        from database import VerificationVote
+        status, _, _ = classify_topic(t.id, db)
+        actual_verify = db.query(VerificationVote).filter(VerificationVote.topic_id == t.id, VerificationVote.vote_type == "verify").count()
+        actual_disverify = db.query(VerificationVote).filter(VerificationVote.topic_id == t.id, VerificationVote.vote_type == "disverify").count()
+        user_vote = None
+        if current_user:
+            vote_obj = db.query(VerificationVote).filter(VerificationVote.topic_id == t.id, VerificationVote.user_id == current_user.id).first()
+            if vote_obj:
+                user_vote = vote_obj.vote_type
+
         trending.append({
             "id": t.id,
             "text": t.text,
@@ -600,8 +746,13 @@ def get_trending_topics(db: Session = Depends(get_db)):
             "location": t.location,
             "author": {
                 "id": t.author.id,
-                "username": t.author.username or "Anonymous"
-            }
+                "username": t.author.username or "Anonymous",
+                "credibility": calculate_user_credibility(t.user_id, db)
+            },
+            "verification_status": status,
+            "verify_count": actual_verify,
+            "disverify_count": actual_disverify,
+            "user_vote": user_vote
         })
 
     return {
@@ -687,6 +838,70 @@ def delete_comment(
     db.delete(comment)
     db.commit()
     return {"success": True, "message": "Comment deleted successfully."}
+
+@app.post("/api/topics/{topic_id}/vote")
+def vote_topic(
+    topic_id: int,
+    vote_type: str = Form(...),
+    user: User = Depends(require_current_user),
+    db: Session = Depends(get_db)
+):
+    from database import VerificationVote
+    vote_type = vote_type.strip().lower()
+    if vote_type not in ["verify", "disverify"]:
+        raise HTTPException(status_code=400, detail="Invalid vote type. Must be 'verify' or 'disverify'.")
+
+    topic = db.query(Topic).filter(Topic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found.")
+
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+    if now_naive > topic.expires_at:
+        raise HTTPException(status_code=400, detail="This topic has expired and cannot be voted on.")
+
+    # Check for existing vote
+    existing_vote = db.query(VerificationVote).filter(
+        VerificationVote.topic_id == topic_id,
+        VerificationVote.user_id == user.id
+    ).first()
+
+    if existing_vote:
+        if existing_vote.vote_type == vote_type:
+            # Retract vote if they click their active vote type again
+            db.delete(existing_vote)
+            db.commit()
+            action = "retracted"
+        else:
+            # Change vote type if they click the other option
+            existing_vote.vote_type = vote_type
+            db.commit()
+            action = "changed"
+    else:
+        # Cast new vote
+        new_vote = VerificationVote(
+            user_id=user.id,
+            topic_id=topic_id,
+            vote_type=vote_type
+        )
+        db.add(new_vote)
+        db.commit()
+        action = "cast"
+
+    # Re-classify topic and return updated counts and status
+    status_str, w_v, w_d = classify_topic(topic_id, db)
+    actual_verify = db.query(VerificationVote).filter(VerificationVote.topic_id == topic_id, VerificationVote.vote_type == "verify").count()
+    actual_disverify = db.query(VerificationVote).filter(VerificationVote.topic_id == topic_id, VerificationVote.vote_type == "disverify").count()
+
+    return {
+        "success": True,
+        "message": f"Vote {action} successfully.",
+        "action": action,
+        "verification_status": status_str,
+        "verify_count": actual_verify,
+        "disverify_count": actual_disverify,
+        "user_vote": vote_type if action != "retracted" else None
+    }
+
 
 # --- Video Streaming and Thumbnail Endpoints ---
 
