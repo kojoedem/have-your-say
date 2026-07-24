@@ -123,8 +123,8 @@
         </div>
 
         <!-- --- SECTION 1: AUTHENTICATION SCREEN --- -->
-        <section id="auth-screen" class="max-w-md mx-auto my-12 transition-all duration-350">
-            <div class="bg-slate-900 border border-slate-800/80 rounded-2xl shadow-2xl p-8 shadow-indigo-500/5">
+        <section id="auth-screen" class="max-w-7xl w-full mx-auto my-12 transition-all duration-350">
+            <div class="max-w-md mx-auto bg-slate-900 border border-slate-800/80 rounded-2xl shadow-2xl p-8 shadow-indigo-500/5">
                 <div class="text-center mb-6">
                     <div class="inline-flex p-3 bg-indigo-600/10 rounded-2xl border border-indigo-500/20 mb-4">
                         <i data-lucide="shield-check" class="h-8 w-8 text-indigo-400"></i>
@@ -228,8 +228,8 @@
         </section>
 
         <!-- --- SECTION 2: PROFILE SETUP MODAL / SCREEN --- -->
-        <section id="profile-screen" class="max-w-md mx-auto my-12 hidden transition-all duration-350">
-            <div class="bg-slate-900 border border-slate-800/80 rounded-2xl shadow-2xl p-8 shadow-fuchsia-500/5">
+        <section id="profile-screen" class="max-w-7xl w-full mx-auto my-12 hidden transition-all duration-350">
+            <div class="max-w-md mx-auto bg-slate-900 border border-slate-800/80 rounded-2xl shadow-2xl p-8 shadow-fuchsia-500/5">
                 <div class="text-center mb-8">
                     <div class="inline-flex p-3 bg-fuchsia-600/10 rounded-2xl border border-fuchsia-500/20 mb-4">
                         <i data-lucide="sparkles" class="h-8 w-8 text-fuchsia-400"></i>
@@ -518,9 +518,12 @@
 
                     <!-- Sidebar Card 2: Trending / High Engagement Says -->
                     <div class="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 shadow-xl">
-                        <h2 class="text-base font-bold text-white flex items-center space-x-2 mb-4 pb-2 border-b border-slate-800">
-                            <i data-lucide="trending-up" class="h-5 w-5 text-amber-400"></i>
-                            <span>Trending Discussions</span>
+                        <h2 class="text-base font-bold text-white flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="trending-up" class="h-5 w-5 text-amber-400"></i>
+                                <span>Trending Discussions</span>
+                            </div>
+                            <span id="trending-count-badge" class="text-xs bg-amber-500/10 text-amber-400 px-2.5 py-0.5 rounded-full border border-amber-500/20 font-bold">0</span>
                         </h2>
 
                         <!-- Trending dynamic items -->
@@ -874,6 +877,13 @@
             }
             closeTermsModal();
             lucide.createIcons();
+        }
+
+        function toggleComments(topicId) {
+            const container = document.getElementById(`comments-section-${topicId}`) || document.getElementById(`comments-section-hot-${topicId}`);
+            if (container) {
+                container.classList.toggle('hidden');
+            }
         }
 
         function showRequestOTPForm() {
@@ -1993,11 +2003,11 @@
 
                         <!-- Engagement Metrics Info -->
                         <div class="flex items-center justify-between pt-1 text-xs text-slate-400">
-                            <div class="flex items-center space-x-2 font-medium">
+                            <button type="button" onclick="toggleComments(${topic.id})" class="flex items-center space-x-2 font-medium text-slate-300 hover:text-indigo-400 transition-all duration-150 focus:outline-none bg-slate-950/40 hover:bg-indigo-500/10 border border-slate-800 hover:border-indigo-500/30 px-3 py-1.5 rounded-xl cursor-pointer">
                                 <i data-lucide="message-square" class="h-4 w-4 text-indigo-400"></i>
-                                <span class="text-white">${topic.comments_count}</span>
-                                <span>comments</span>
-                            </div>
+                                <span class="text-white font-bold">${topic.comments_count}</span>
+                                <span>comments (click to view/reply)</span>
+                            </button>
                             <div class="flex items-center space-x-1 text-indigo-300 font-semibold">
                                 <span>Engagement:</span>
                                 <span class="bg-indigo-950 border border-indigo-800/30 px-1.5 py-0.5 rounded text-indigo-300">${topic.progress_percent}%</span>
@@ -2005,7 +2015,7 @@
                         </div>
 
                         <!-- Comments Section -->
-                        <div class="border-t border-slate-800/60 pt-4 space-y-3.5">
+                        <div id="comments-section-${isHotTake ? 'hot-' : ''}${topic.id}" class="hidden border-t border-slate-800/60 pt-4 space-y-3.5">
                             <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Replies</h4>
 
                             <div class="space-y-2.5 max-h-60 overflow-y-auto pr-1">
@@ -2232,6 +2242,10 @@
 
         function renderTrending(trendingList) {
             const container = document.getElementById('trending-container');
+            const countBadge = document.getElementById('trending-count-badge');
+            if (countBadge) {
+                countBadge.innerText = trendingList ? trendingList.length : 0;
+            }
             if (!trendingList || trendingList.length === 0) {
                 container.innerHTML = `
                     <div class="text-xs text-slate-500 italic text-center py-4">

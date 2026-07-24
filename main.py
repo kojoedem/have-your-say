@@ -341,6 +341,21 @@ def create_topic(
             with open(original_path, "wb") as buffer:
                 shutil.copyfileobj(image.file, buffer)
 
+            # Automatically determine file size of the video in bytes and MB
+            file_size_bytes = os.path.getsize(original_path)
+            file_size_mb = file_size_bytes / (1024 * 1024)
+            print(f"[Video Upload] Automatically determined size: {file_size_bytes} bytes ({file_size_mb:.2f} MB)")
+
+            # Reject video if size exceeds a reasonable limit (e.g. 50 MB)
+            if file_size_bytes > 50 * 1024 * 1024:
+                try:
+                    original_path.unlink()
+                except Exception as e:
+                    print(f"Error unlinking video of too large size: {e}")
+                db.delete(video_record)
+                db.commit()
+                raise HTTPException(status_code=400, detail="Video exceeds the maximum size limit of 50 MB. Upload rejected.")
+
             # Validate video duration is not greater than 1 minute (60 seconds)
             duration = get_video_duration(str(original_path))
             if duration > 60.1:
