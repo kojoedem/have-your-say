@@ -4,77 +4,170 @@
   <img src="logo.png" width="400">
 </p>
 
-## Anonymous Open Discussion Platform
+## Anonymous Truth-Driven Discussion Platform
 
-**Have Your Say** is an open platform designed to give people a space to express their thoughts, opinions, and ideas freely while maintaining anonymity.
+**Have Your Say** is a next-generation discussion platform designed to enable **anonymous expression, community-driven truth validation, and responsible discourse**.
 
-Users can share:
-- Text discussions
-- Photos
-- Short videos
-
-Videos uploaded to the platform are automatically converted into GIF format for easier viewing and storage. The maximum allowed video length is **1 minute**.
-
-The goal of this platform is to encourage open communication and allow users to share their views without fear of immediate exposure. However, users are encouraged to think carefully before posting.
+Unlike traditional social platforms that prioritize popularity, *Have Your Say* focuses on **credibility, verification, and meaningful engagement**.
 
 ---
 
-## Important Notice
+## Core Concept
 
-Freedom of speech gives everyone the right to express their opinions, but it does not remove responsibility for the words we choose to share.
+Users share statements, opinions, or claims—referred to as **“Says”**—through:
+- Text
+- Images
+- Short-form videos (max 60 seconds)
 
-> "Freedom of speech is free, but we cannot guarantee your freedom after the speech."
+Each “Say” can be evaluated by the community through:
+- **Verify** (agreement / support)
+- **Disverify** (challenge / disagreement)
 
-Users should consider the possible consequences of their statements and ensure that their contributions respect applicable laws and the rights of others.
+This creates a **dynamic, community-driven truth layer**, where credibility evolves over time.
+
+---
+
+## Identity & Anonymity Model
+
+- Users participate **anonymously by default**
+- The system assigns **temporary identities**
+- Identities refresh:
+  - On login, or
+  - Every 12 hours
+
+### Benefits
+- Reduces bias and social pressure  
+- Encourages honest participation  
+- Prevents long-term tracking of users  
+
+---
+
+## Reputation & Credibility System
+
+The platform is built on a **credibility-first model**, not likes or followers.
+
+Each user has a **hidden reputation score** based on:
+- Accuracy of their “Says”
+- Ratio of verified vs disverified content
+- Consistency over time
+
+### Weighted Validation
+- Votes are **not equal**
+- Higher credibility users have **greater influence**
+
+---
+
+## Single Source of Truth Mechanism
+
+Each post is dynamically classified as:
+
+- **Verified** → Trusted by the community  
+- **Disputed** → Mixed feedback  
+- **Disverified** → Rejected or challenged  
+
+This system aims to:
+- Reduce misinformation  
+- Promote evidence-based discussion  
+- Encourage critical thinking  
+
+---
+
+## Private Discussion Privileges
+
+Users with strong credibility unlock:
+
+### 🔥 12-Hour Private Discussion Sessions
+
+Features:
+- Create invite-only rooms  
+- Discuss sensitive or high-impact topics  
+- Engage with selected participants  
+
+This acts as a **reward mechanism for high-quality contributions**.
+
+---
+
+## Content System
+
+Supported formats:
+- Text posts  
+- Image uploads  
+- Video uploads (max 60 seconds)  
+
+### Media Optimization
+- Videos are automatically converted to GIF format  
+- Ensures fast loading and efficient storage  
 
 ---
 
 ## Privacy & Content Lifetime
 
-- User identity is protected through anonymous participation.
-- Topics and posts are automatically removed after **12 hours**.
-- The platform is designed for temporary discussions rather than permanent records.
-- User anonymity does not remove responsibility for harmful or unlawful content.
+- All posts are **temporary (12-hour lifespan)**
+- Content is automatically deleted after expiration
+- Platform is designed for **real-time discussions**, not permanent records
+
+> Note: Temporary content does not prevent screenshots or external sharing.
 
 ---
 
 ## Features
 
-✅ Anonymous discussions  
-✅ Temporary posts (12-hour lifetime)  
-✅ Photo sharing  
-✅ Video upload support  
-✅ Automatic video-to-GIF conversion  
-✅ Mobile-friendly interface  
-✅ Open community conversations  
+- Anonymous participation  
+- Temporary discussions (12 hours)  
+- Community-driven verification system  
+- Credibility-based reputation model  
+- Private discussion sessions  
+- Photo and video sharing  
+- Automatic video-to-GIF conversion  
+- Mobile-friendly interface  
 
 ---
 
 ## Purpose
 
-Have Your Say aims to create a space where people can:
+Have Your Say aims to:
 
-- Share opinions openly.
-- Discuss important topics.
-- Exchange ideas.
-- Participate in conversations anonymously.
+- Enable open and honest conversations  
+- Create a **truth-validation layer** for discussions  
+- Reduce misinformation through collective input  
+- Provide a safe space for sensitive topics  
+- Encourage responsible and thoughtful communication  
 
 ---
 
 ## Responsible Usage
 
-While anonymity is provided, users are expected to use the platform responsibly.
+Anonymity does not remove responsibility.
 
 Content that promotes:
-- Threats
-- Harassment
-- Hate
-- Illegal activities
-- Harm to others
+- Threats  
+- Harassment  
+- Hate speech  
+- Illegal activities  
+- Harm to individuals or groups  
 
-may not be allowed.
+may be restricted or removed.
 
-**Speak freely. Think carefully. Respect others.**
+---
+
+## Important Notice
+
+Freedom of speech allows expression, but not freedom from consequences.
+
+> "Freedom of speech is free, but consequences are not."
+
+Users are responsible for ensuring their content complies with applicable laws and respects others.
+
+---
+
+## Download Control
+
+Topic creators can control content export:
+
+- Enable download → Users can export discussions (JSON / CSV)  
+- Disable download → Export is restricted  
+
+> Note: This does not prevent screenshots or external capture.
 
 ---
 
@@ -95,10 +188,12 @@ may not be allowed.
 <p align="center">
   <img src="first-image.png" width="600">
 </p>
+
 <p align="center">
   <img src="second-page.png" width="600">
 </p>
 
+---
 
 ### Main Discussion Page
 
@@ -106,19 +201,24 @@ may not be allowed.
   <img src="fourth-image.png" width="600">
 </p>
 
+---
+
 ### Anonymous Post Page
 
 <p align="center">
   <img src="second-image.png" width="600">
 </p>
 
-## Download Control
+---
 
-Topic creators can choose whether their conversations can be downloaded.
+## Philosophy
 
-- If enabled, users can export the discussion in JSON or CSV format
-- If disabled, download functionality will not be available
+- Not popularity-driven  
+- Not identity-driven  
+- **Credibility-driven**  
 
-### Note
+---
 
-This setting helps guide content sharing, but it does not prevent users from capturing content through screenshots or other means.
+## Tagline
+
+**Speak freely. Verify responsibly. Build truth together.**
