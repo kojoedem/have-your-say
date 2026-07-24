@@ -173,31 +173,18 @@
                         </div>
                     </div>
 
-                    <!-- Terms and Conditions Acceptance -->
-                    <div class="border border-slate-800 bg-slate-950/60 rounded-xl p-4 space-y-3">
-                        <div class="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                            <span>Terms and Conditions</span>
-                            <span class="text-indigo-400">Required</span>
+                    <!-- Terms and Conditions Acceptance Link -->
+                    <div class="border border-slate-800 bg-slate-950/60 rounded-xl p-4 flex flex-col items-center justify-center space-y-3 text-center" id="terms-acceptance-container">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="shield-alert" class="h-4 w-4 text-slate-400"></i>
+                            <span class="text-xs text-slate-300 font-medium leading-normal">
+                                To proceed, please read and accept the <button type="button" id="terms-read-btn" onclick="openTermsModal()" class="text-indigo-400 hover:underline font-semibold focus:outline-none"><span id="terms-read-btn-text">Terms & Conditions</span></button>.
+                            </span>
                         </div>
-                        <div class="h-24 overflow-y-auto text-[10px] text-slate-400 leading-relaxed pr-1 border-b border-slate-800/40 pb-2">
-                            <p class="font-bold text-slate-300 mb-1">By accessing and using Have Your Say, you agree to the following terms:</p>
-                            <p class="font-bold mt-1.5 text-slate-200">User Responsibility</p>
-                            <p>You are fully responsible for any content, comments, opinions, or materials you post on this platform. You agree that your actions and contributions must comply with applicable laws and respect the rights and privacy of others.</p>
-                            <p class="font-bold mt-1.5 text-slate-200">Acceptable Use</p>
-                            <p>You must not use this platform to post illegal content, threats, harassment, hate speech, abuse, misinformation, or content intended to harm others.</p>
-                            <p class="font-bold mt-1.5 text-slate-200">Respect and Privacy</p>
-                            <p>Users must respect other members of the community. Sharing personal information about others without permission is prohibited.</p>
-                            <p class="font-bold mt-1.5 text-slate-200">Platform Rights</p>
-                            <p>Have Your Say reserves the right to remove content, restrict access, or suspend accounts that violate these terms or negatively affect the safety and integrity of the platform.</p>
-                            <p class="font-bold mt-1.5 text-slate-200">No Guarantee of User Content</p>
-                            <p>Opinions and statements shared by users belong to the individuals who post them and do not represent the views of Have Your Say.</p>
-                            <p class="mt-2 text-slate-300 font-semibold">By continuing to use this platform, you confirm that you understand and accept these terms and agree to use the service responsibly. Although the platform may provide anonymity to users, anonymity does not remove responsibility for unlawful or harmful actions.</p>
-                        </div>
-                        <div class="flex items-start space-x-2">
-                            <input type="checkbox" id="accept-terms" class="mt-0.5 h-4 w-4 rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
-                            <label for="accept-terms" class="text-[11px] text-slate-300 cursor-pointer select-none leading-normal">
-                                I accept the Terms & Conditions and understand anonymity does not excuse unlawful behavior.
-                            </label>
+                        <input type="checkbox" id="accept-terms" class="hidden">
+                        <div id="accepted-badge" class="hidden flex items-center space-x-1.5 text-emerald-400 font-semibold text-xs bg-emerald-500/10 border border-emerald-500/25 px-3 py-1.5 rounded-full transition-all duration-300">
+                            <i data-lucide="check-circle" class="h-4 w-4"></i>
+                            <span>Terms Accepted</span>
                         </div>
                     </div>
 
@@ -652,6 +639,65 @@
         </div>
     </div>
 
+    <!-- --- TERMS & CONDITIONS MODAL OVERLAY --- -->
+    <div id="terms-conditions-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg flex flex-col max-h-[85vh] shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="shield-check" class="h-5 w-5 text-indigo-400"></i>
+                    <h3 class="text-base font-bold text-white">Terms and Conditions</h3>
+                </div>
+                <button onclick="closeTermsModal()" class="p-1 text-slate-400 hover:text-slate-200 transition focus:outline-none">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-6 overflow-y-auto flex-grow space-y-4 text-sm text-slate-300 leading-relaxed max-h-[50vh]">
+                <p class="font-bold text-white">By accessing and using Have Your Say, you agree to the following terms:</p>
+
+                <div>
+                    <h4 class="font-bold text-slate-200 mt-2">User Responsibility</h4>
+                    <p class="text-xs text-slate-400 mt-1">You are fully responsible for any content, comments, opinions, or materials you post on this platform. You agree that your actions and contributions must comply with applicable laws and respect the rights and privacy of others.</p>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-slate-200 mt-2">Acceptable Use</h4>
+                    <p class="text-xs text-slate-400 mt-1">You must not use this platform to post illegal content, threats, harassment, hate speech, abuse, misinformation, or content intended to harm others.</p>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-slate-200 mt-2">Respect and Privacy</h4>
+                    <p class="text-xs text-slate-400 mt-1">Users must respect other members of the community. Sharing personal information about others without permission is prohibited.</p>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-slate-200 mt-2">Platform Rights</h4>
+                    <p class="text-xs text-slate-400 mt-1">Have Your Say reserves the right to remove content, restrict access, or suspend accounts that violate these terms or negatively affect the safety and integrity of the platform.</p>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-slate-200 mt-2">No Guarantee of User Content</h4>
+                    <p class="text-xs text-slate-400 mt-1">Opinions and statements shared by users belong to the individuals who post them and do not represent the views of Have Your Say.</p>
+                </div>
+
+                <p class="text-xs text-slate-300 font-semibold border-t border-slate-800/60 pt-3 mt-3">By continuing to use this platform, you confirm that you understand and accept these terms and agree to use the service responsibly. Although the platform may provide anonymity to users, anonymity does not remove responsibility for unlawful or harmful actions.</p>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 bg-slate-950/60 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-end gap-3">
+                <button onclick="closeTermsModal()" class="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-semibold transition">
+                    Decline
+                </button>
+                <button onclick="acceptTermsFromModal()" class="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/15 transition flex items-center justify-center space-x-1.5">
+                    <i data-lucide="check" class="h-4 w-4"></i>
+                    <span>Accept & Close</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- --- CLIENT-SIDE JAVASCRIPT --- -->
     <script>
         // --- XSS Prevention Escape Helper ---
@@ -796,6 +842,40 @@
             showRequestOTPForm();
         }
 
+        function openTermsModal() {
+            const modal = document.getElementById('terms-conditions-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                lucide.createIcons();
+            }
+        }
+
+        // Close terms modal
+        function closeTermsModal() {
+            const modal = document.getElementById('terms-conditions-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // Handle terms acceptance inside the modal
+        function acceptTermsFromModal() {
+            const acceptCheckbox = document.getElementById('accept-terms');
+            if (acceptCheckbox) {
+                acceptCheckbox.checked = true;
+            }
+            const badge = document.getElementById('accepted-badge');
+            if (badge) {
+                badge.classList.remove('hidden');
+            }
+            const textSpan = document.getElementById('terms-read-btn-text');
+            if (textSpan) {
+                textSpan.innerText = "Review Terms & Conditions";
+            }
+            closeTermsModal();
+            lucide.createIcons();
+        }
+
         function showRequestOTPForm() {
             document.getElementById('otp-request-form').classList.remove('hidden');
             document.getElementById('otp-verify-form').classList.add('hidden');
@@ -845,7 +925,8 @@
             // 1. Enforce Terms and Conditions Acceptance before OTP Dispatch!
             const acceptCheckbox = document.getElementById('accept-terms');
             if (!acceptCheckbox || !acceptCheckbox.checked) {
-                alert("You must accept the Terms and Conditions before requesting an OTP code.");
+                alert("You must accept the Terms and Conditions before requesting an OTP code. Opening terms now...");
+                openTermsModal();
                 return;
             }
 
@@ -893,6 +974,8 @@
                         // Redirect prompt for non-linked Telegram accounts
                         alert("Account not linked yet. Redirecting you to Telegram Bot to complete the handshake.");
                         window.open(data.telegram_link, "_blank");
+                        // Also open the OTP enter form so they can enter the OTP when they return
+                        showVerifyOTPForm(identifier, data.otp_code, activeAuthTab);
                     } else {
                         showVerifyOTPForm(identifier, data.otp_code, activeAuthTab);
                     }

@@ -81,10 +81,20 @@ def read_index():
 
 # --- Authentication Endpoints ---
 
+def send_telegram_otp_background(chat_id: str, otp_code: str):
+    if BOT_TOKEN:
+        try:
+            from telegram_bot import send_otp
+            send_otp(chat_id, otp_code)
+            print(f"[Telegram Bot Background] Sent directly to Chat ID {chat_id}.")
+        except Exception as e:
+            print(f"[Telegram Bot Error Background] Failed to send message: {e}")
+
 @app.post("/api/auth/otp-request")
 def request_otp(
     phone: Optional[str] = Form(None),
     email: Optional[str] = Form(None),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
 ):
     if phone:
@@ -117,12 +127,16 @@ def request_otp(
         print(f"\n[MOCK SMS] To: {phone} | Code: {otp_code}\n")
 
         if BOT_TOKEN and user.telegram_chat_id:
-            try:
-                from telegram_bot import send_otp
-                send_otp(user.telegram_chat_id, otp_code)
-                print(f"[Telegram Bot] Sent directly to Chat ID {user.telegram_chat_id}.")
-            except Exception as e:
-                print(f"[Telegram Bot Error] Failed to send message: {e}")
+            if background_tasks:
+                background_tasks.add_task(send_telegram_otp_background, user.telegram_chat_id, otp_code)
+                print(f"[Telegram Bot] Enqueued direct message to Chat ID {user.telegram_chat_id}.")
+            else:
+                try:
+                    from telegram_bot import send_otp
+                    send_otp(user.telegram_chat_id, otp_code)
+                    print(f"[Telegram Bot Direct] Sent directly to Chat ID {user.telegram_chat_id}.")
+                except Exception as e:
+                    print(f"[Telegram Bot Error] Failed to send message: {e}")
 
         return {
             "success": True,
