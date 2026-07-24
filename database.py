@@ -24,6 +24,7 @@ class User(Base):
     otp_expires = Column(DateTime, nullable=True)
     is_verified = Column(Boolean, default=False)
     session_token = Column(String, unique=True, index=True, nullable=True)
+    pseudonym_updated_at = Column(DateTime, nullable=True)
 
     topics = relationship("Topic", back_populates="author")
     comments = relationship("Comment", back_populates="author")
@@ -44,6 +45,7 @@ class Topic(Base):
     author = relationship("User", back_populates="topics")
     comments = relationship("Comment", back_populates="topics", cascade="all, delete-orphan")
     videos = relationship("Video", back_populates="topic", cascade="all, delete-orphan")
+    votes = relationship("VerificationVote", back_populates="topic", cascade="all, delete-orphan")
 
 class Video(Base):
     __tablename__ = "videos"
@@ -75,6 +77,18 @@ class Comment(Base):
     author = relationship("User", back_populates="comments")
     replies = relationship("Comment", back_populates="parent", cascade="all, delete-orphan")
     parent = relationship("Comment", back_populates="replies", remote_side=[id])
+
+class VerificationVote(Base):
+    __tablename__ = "verification_votes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
+    vote_type = Column(String, nullable=False)  # "verify" or "disverify"
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User")
+    topic = relationship("Topic", back_populates="votes")
 
 def init_db():
     inspector = inspect(engine)
@@ -120,7 +134,14 @@ def init_db():
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE topics ADD COLUMN allow_download BOOLEAN DEFAULT 1"))
 
-    # Now handle videos table creation
+    # Check if pseudonym_updated_at column is missing on users
+    if "users" in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('users')]
+        if 'pseudonym_updated_at' not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN pseudonym_updated_at DATETIME"))
+
+    # Now handle other tables creation (including verification_votes)
     Base.metadata.create_all(bind=engine)
 
 def get_db():
