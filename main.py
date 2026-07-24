@@ -367,14 +367,11 @@ def create_topic(
                 db.commit()
                 raise HTTPException(status_code=400, detail="Video exceeds the maximum duration limit of 1 minute (60 seconds).")
 
-            # Trigger background segment processing and thumbnail extraction
-            background_tasks.add_task(
-                background_video_processing,
-                video_record.id,
-                image.filename,
-                SessionLocal,
-                selected_frame_index
-            )
+            # Automatically update the video record duration and segment count directly
+            video_record.duration = duration
+            video_record.segments_count = 1
+            db.commit()
+            db.refresh(video_record)
         else:
             ext = os.path.splitext(image.filename)[1]
             unique_filename = f"{uuid.uuid4()}{ext}"
@@ -704,6 +701,23 @@ def delete_comment(
     return {"success": True, "message": "Comment deleted successfully."}
 
 # --- Video Streaming and Thumbnail Endpoints ---
+
+@app.get("/api/videos/{video_id}/play")
+def play_video(video_id: int, db: Session = Depends(get_db)):
+    """
+    Streams the original full uploaded video file from videos/original.
+    """
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found.")
+
+    # Locate original video in videos/original
+    for f in os.listdir("videos/original"):
+        if f.startswith(f"{video_id}_"):
+            filepath = os.path.join("videos/original", f)
+            return FileResponse(filepath, media_type="video/mp4")
+
+    raise HTTPException(status_code=404, detail="Video file not found.")
 
 @app.get("/api/videos/{video_id}/segments/{segment_index}")
 def get_video_segment(video_id: int, segment_index: int, db: Session = Depends(get_db)):
