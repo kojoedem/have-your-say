@@ -14,6 +14,6 @@ def send_otp(chat_id: str, otp: str):
     }
 
     # send request to telegram
-    response = requests.post(TELEGRAM_API, json=payload)
+    response = requests.post(TELEGRAM_API, json=payload, timeout=5)
 
     return response.json()
